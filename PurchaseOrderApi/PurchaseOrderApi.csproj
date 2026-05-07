@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>PurchaseOrderApi</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Core Elsa runtime -->
+    <PackageReference Include="Elsa" Version="3.*-*" />
+    <!-- REST API endpoints — required for Elsa Studio to connect -->
+    <PackageReference Include="Elsa.Workflows.Api" Version="3.*-*" />
+    <!-- Swagger UI -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.*" />
+  </ItemGroup>
+</Project>
