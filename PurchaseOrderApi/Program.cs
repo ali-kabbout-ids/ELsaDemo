@@ -48,13 +48,13 @@ builder.Services.AddElsa(elsa =>
     elsa.UseWorkflowManagement(m => m.UseEntityFrameworkCore(ef =>
     {
         ef.UseSqlServer(connStr);
-        ef.RunMigrations = true;
+        ef.RunMigrations = builder.Environment.IsDevelopment();
     }));
 
     elsa.UseWorkflowRuntime(r => r.UseEntityFrameworkCore(ef =>
     {
         ef.UseSqlServer(connStr);
-        ef.RunMigrations = true;
+        ef.RunMigrations = builder.Environment.IsDevelopment();
     }));
 
     elsa.UseHttp(http =>
@@ -108,8 +108,9 @@ if (builder.Environment.IsProduction())
 }
 
 // Database Auto-Migration
-await using (var scope = app.Services.CreateAsyncScope())
+if (app.Environment.IsDevelopment())
 {
+    await using var scope = app.Services.CreateAsyncScope();
     var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await appDb.Database.MigrateAsync();
 }
