@@ -14,13 +14,15 @@ public class RejectOrderActivity : CodeActivity
 
     protected override async ValueTask ExecuteAsync(ActivityExecutionContext ctx)
     {
-        var store   = ctx.GetRequiredService<PurchaseOrderStore>();
+        var store   = ctx.GetRequiredService<PurchaseOrderService>();
         var orderId = ctx.Get(OrderId);
         var reason  = ctx.Get(Reason);
-        var order   = store.GetById(orderId)!;
+        var order   = await store.GetByIdAsync(orderId)
+            ?? throw new InvalidOperationException($"PO #{orderId} not found.");
+
         order.Status          = OrderStatus.Rejected;
         order.RejectionReason = reason;
-        store.Save(order);
+        await store.SaveAsync(order);
         Console.WriteLine($"[ELSA] RejectOrder ❌  PO #{orderId} REJECTED. Reason: {reason}");
     }
 }

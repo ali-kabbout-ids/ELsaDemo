@@ -1,72 +1,105 @@
+using Elsa;
 using Elsa.Extensions;
+using Microsoft.EntityFrameworkCore;
 using PurchaseOrderApi.Activities;
+using PurchaseOrderApi.Data;
 using PurchaseOrderApi.Services;
 using PurchaseOrderApi.Workflows;
-using Elsa;
-var builder = WebApplication.CreateBuilder(args);
+using Elsa.Persistence.EFCore.Extensions;
+using Elsa.Persistence.EFCore.Modules.Management;
+using Elsa.Persistence.EFCore.Modules.Runtime;
+using Elsa.Resilience.Extensions;
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("ElsaStudioPolicy", policy =>
-    {
-        policy.WithOrigins("https://localhost:44314") // Explicitly allow Studio
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials(); // Crucial for Blazor/Elsa communication
-    });
-});
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+string connStr = builder.Configuration.GetConnectionString("Database")
+    ?? throw new InvalidOperationException("Connection string 'Database' is missing.");
+
+string elsaHttpBaseUrl = builder.Configuration.GetValue<string>("Elsa:Http:BaseUrl")
+    ?? "https://localhost:44306";
+
+// --- 2. SERVICES ---
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "Purchase Order API — Elsa Demo", Version = "v1" });
 
-    // This is crucial: Elsa and your API might have overlapping route names
     c.CustomSchemaIds(x => x.FullName);
 });
 
-// In-memory PO store (singleton = lives for app lifetime)
-builder.Services.AddSingleton<PurchaseOrderStore>();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ElsaStudioPolicy", policy =>
+    {
+        policy.WithOrigins("https://localhost:44314")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
-// ── ELSA SETUP ──────────────────────────────────────────────────────────────
+builder.Services.AddDbContext<AppDbContext>(opts => opts.UseSqlServer(connStr));
+builder.Services.AddScoped<PurchaseOrderService>();
+
+// --- 3. ELSA SETUP ---
 builder.Services.AddElsa(elsa =>
 {
-    // 1. All state stored in memory — no DB, no migrations, zero config
-    //    (in-memory is Elsa 3's default; no sub-config needed)
-    elsa.UseWorkflowManagement();
-    elsa.UseWorkflowRuntime();
-    elsa.UseFlowchart();
-    //elsa.UseHttp();
-    // 2. REST API endpoints — Elsa Studio connects to these
+    elsa.UseWorkflowManagement(m => m.UseEntityFrameworkCore(ef =>
+    {
+        ef.UseSqlServer(connStr);
+        ef.RunMigrations = true;
+    }));
+
+    elsa.UseWorkflowRuntime(r => r.UseEntityFrameworkCore(ef =>
+    {
+        ef.UseSqlServer(connStr);
+        ef.RunMigrations = true;
+    }));
+
+    elsa.UseHttp(http =>
+    {
+        http.ConfigureHttpOptions = options =>
+        {
+            options.BaseUrl = new Uri(elsaHttpBaseUrl);
+        };
+    });
+
     elsa.UseWorkflowsApi();
+    elsa.UseFlowchart();
+    elsa.UseResilience();
 
-
-    // 3. Register custom activities so Elsa can resolve + inject DI services
+    // Activities
     elsa.AddActivity<ValidateOrderActivity>();
     elsa.AddActivity<NotifyManagerActivity>();
     elsa.AddActivity<WaitForApprovalActivity>();
     elsa.AddActivity<ApproveOrderActivity>();
     elsa.AddActivity<RejectOrderActivity>();
 
-    // 4. Register the workflow definition — Elsa loads it on startup
     elsa.AddWorkflow<PurchaseOrderApprovalWorkflow>();
 });
 
 if (builder.Environment.IsDevelopment())
 {
-    // The static call is usually on EndpointSecurityOptions directly 
-    // if the Elsa.Common package is referenced.
     EndpointSecurityOptions.DisableSecurity();
 }
-// ────────────────────────────────────────────────────────────────────────────
+
 var app = builder.Build();
 
-app.UseRouting(); // Ensure routing is enabled first
 
-// Explicitly use the named policy
+app.UseRouting();
 app.UseCors("ElsaStudioPolicy");
+
+app.UseWorkflows();
+
+app.UseWorkflowsApi();
+
+
 app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Purchase Order API v1");
+});
 
 if (builder.Environment.IsProduction())
 {
@@ -74,11 +107,12 @@ if (builder.Environment.IsProduction())
     app.UseAuthorization();
 }
 
-app.UseSwaggerUI(c =>
+// Database Auto-Migration
+await using (var scope = app.Services.CreateAsyncScope())
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Purchase Order API v1");
-});
-app.UseWorkflowsApi();  // maps Elsa REST routes (used by Studio)
-app.MapControllers();
+    var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await appDb.Database.MigrateAsync();
+}
 
+app.MapControllers();
 app.Run();

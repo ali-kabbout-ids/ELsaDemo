@@ -13,35 +13,36 @@ namespace PurchaseOrderApi.Controllers;
 
 [ApiController, Route("api/orders")]
 public class PurchaseOrdersController(
-    PurchaseOrderStore store,
+    PurchaseOrderService orderService,
     IWorkflowRuntime runtime,
     IWorkflowInstanceStore instanceStore,
     IBookmarkStore bookmarkStore) : ControllerBase
 {
     [HttpPost]
-    public IActionResult Create([FromBody] CreateOrderRequest req)
+    public async Task<IActionResult> Create([FromBody] CreateOrderRequest req)
     {
-        var order = store.Create(req);
+        var order = await orderService.CreateAsync(req);
         return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
     }
 
     [HttpGet]
-    public IActionResult GetAll() => Ok(store.GetAll());
+    public async Task<IActionResult> GetAll()
+        => Ok(await orderService.GetAllAsync());
 
     [HttpGet("{id}")]
-    public IActionResult GetById(int id)
-        => store.GetById(id) is {} order ? Ok(order) : NotFound();
+    public async Task<IActionResult> GetById(int id)
+        => await orderService.GetByIdAsync(id) is { } order ? Ok(order) : NotFound();
 
     // Submit → Start Elsa Workflow
     [HttpPost("{id}/submit")]
     public async Task<IActionResult> Submit(int id, CancellationToken ct)
     {
-        var order = store.GetById(id);
-        if (order is null)                         return NotFound($"PO #{id} not found.");
+        var order = await orderService.GetByIdAsync(id);
+        if (order is null)                        return NotFound($"PO #{id} not found.");
         if (order.Status != OrderStatus.Draft)
             return BadRequest($"PO #{id} is '{order.Status}'. Only Draft orders can be submitted.");
 
-        var result =  await runtime.StartWorkflowAsync(
+        var result = await runtime.StartWorkflowAsync(
             PurchaseOrderApprovalWorkflow.DefinitionId,
             new StartWorkflowRuntimeParams
             {
@@ -51,7 +52,7 @@ public class PurchaseOrdersController(
             });
 
         order.WorkflowInstanceId = result.WorkflowInstanceId;
-        store.Save(order);
+        await orderService.SaveAsync(order);
 
         return Accepted(new
         {
@@ -63,15 +64,11 @@ public class PurchaseOrdersController(
 
     // Decide → Resume Elsa Workflow
     [HttpPost("{id}/decide")]
-    public async Task<IActionResult> Decide(
-        int id,
-        [FromBody] ApprovalDecisionRequest req,
-        CancellationToken ct)
+    public async Task<IActionResult> Decide(int id,
+        [FromBody] ApprovalDecisionRequest req, CancellationToken ct)
     {
-        var order = store.GetById(id);
-        if (order is null)
-            return NotFound($"PO #{id} not found.");
-
+        var order = await orderService.GetByIdAsync(id);
+        if (order is null) return NotFound($"PO #{id} not found.");
         if (order.Status != OrderStatus.PendingApproval)
             return BadRequest($"PO #{id} is not pending approval (status: {order.Status}).");
 
@@ -89,12 +86,8 @@ public class PurchaseOrdersController(
         var bookmarks = await bookmarkStore.FindManyAsync(
             new BookmarkFilter { WorkflowInstanceId = instance.Id }, ct);
 
-        var bookmark = bookmarks.FirstOrDefault(b =>
-            b.ActivityTypeName == "UserTask" // 🔥 adjust to your workflow
-        );
-
-        if (bookmark is null)
-            return NotFound("Expected bookmark not found.");
+        var bookmark = bookmarks.FirstOrDefault();
+        if (bookmark is null) return NotFound("Bookmark not found.");
 
         await runtime.ResumeWorkflowAsync(
             instance.Id,
@@ -111,8 +104,9 @@ public class PurchaseOrdersController(
 
         return Ok(new
         {
-            message = $"Decision '{decision}' recorded. Workflow resumed.",
-            workflowInstanceId = instance.Id
+            message            = $"Decision '{decision}' recorded. Workflow resumed.",
+            workflowInstanceId = instance.Id,
+            bookmarkId         = bookmark.Id
         });
     }
 }

@@ -13,11 +13,13 @@ public class ApproveOrderActivity : CodeActivity
 
     protected override async ValueTask ExecuteAsync(ActivityExecutionContext ctx)
     {
-        var store   = ctx.GetRequiredService<PurchaseOrderStore>();
-        var orderId = ctx.Get(OrderId);
-        var order   = store.GetById(orderId)!;
+        var store   = ctx.GetRequiredService<PurchaseOrderService>();
+        int orderId = ctx.Get(OrderId);
+        PurchaseOrder order   = await store.GetByIdAsync(orderId)
+            ?? throw new InvalidOperationException($"PO #{orderId} not found.");
+
         order.Status = OrderStatus.Approved;
-        store.Save(order);
+        await store.SaveAsync(order);
         Console.WriteLine($"[ELSA] ApproveOrder ✅  PO #{orderId} APPROVED");
     }
 }

@@ -3,6 +3,7 @@
 
 using Elsa.Workflows;
 using Elsa.Workflows.Activities;
+using Elsa.Workflows.Activities.Flowchart.Activities;
 using Elsa.Workflows.Models;
 using PurchaseOrderApi.Activities;
 
@@ -20,12 +21,10 @@ public class PurchaseOrderApprovalWorkflow : WorkflowBase
         var decisionVar  = builder.WithVariable<string>("Decision", "");
         var reasonVar    = builder.WithVariable<string>("Reason",   "");
 
-        builder.Root = new Sequence
+        builder.Root = new Flowchart
         {
             Activities =
             {
-                        new WriteLine("Hello World!"),
-                // Activity chaining via Input/Output bindings
                 new ValidateOrderActivity
                 {
                     OrderId      = new Input<int>(orderIdVar),
