@@ -17,10 +17,10 @@ public class ValidateOrderActivity : CodeActivity
 
     protected override async ValueTask ExecuteAsync(ActivityExecutionContext ctx)
     {
-        var store   = ctx.GetRequiredService<PurchaseOrderStore>();
-        var orderId = ctx.Get(OrderId);
+        PurchaseOrderService store   = ctx.GetRequiredService<PurchaseOrderService>();
+        int orderId = ctx.Get(OrderId);
 
-        var order = store.GetById(orderId)
+        PurchaseOrder order = await store.GetByIdAsync(orderId)
             ?? throw new InvalidOperationException($"PO #{orderId} not found.");
 
         if (order.Amount <= 0)
@@ -30,7 +30,7 @@ public class ValidateOrderActivity : CodeActivity
             throw new InvalidOperationException($"PO #{orderId}: ManagerEmail is required.");
 
         order.Status = OrderStatus.PendingApproval;
-        store.Save(order);
+        await store.SaveAsync(order);
 
         ctx.Set(ManagerEmail, order.ManagerEmail);
         Console.WriteLine($"[ELSA] ValidateOrder ✓  PO #{orderId}  Amount={order.Amount:C}  Manager={order.ManagerEmail}");
