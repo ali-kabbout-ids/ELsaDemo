@@ -63,10 +63,6 @@ public class ApplicationsController(
     public Task<IActionResult> Mo3awenDecide(int id, [FromBody] ReviewDecisionRequest req)
         => Resume<WaitForMo3awenCho3baActivity>(id, req);
 
-    [HttpPost("{id:int}/mo5atabat/decide")]
-    public Task<IActionResult> Mo5atabatDecide(int id, [FromBody] ReviewDecisionRequest req)
-        => Resume<WaitForMo5atabatActivity>(id, req);
-
     [HttpPost("{id:int}/final-mo3awen/decide")]
     public Task<IActionResult> FinalMo3awenDecide(int id, [FromBody] ReviewDecisionRequest req)
         => Resume<WaitForFinalMo3awenActivity>(id, req);

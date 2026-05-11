@@ -20,7 +20,12 @@ public class ApplicationRequestWorkFlow : WorkflowBase
 {
     public static string DefinitionId => nameof(ApplicationRequestWorkFlow);
 
-    private const string ApiBaseUrl = "https://localhost:44306";
+    private readonly string ApiBaseUrl;
+
+    public ApplicationRequestWorkFlow(IConfiguration configuration)
+    {
+        ApiBaseUrl = configuration["Elsa:Http:BaseUrl"] ?? "https://localhost:44306";
+    }
 
     protected override void Build(IWorkflowBuilder builder)
     {
