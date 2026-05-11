@@ -41,6 +41,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddDbContext<AppDbContext>(opts => opts.UseSqlServer(connStr));
 builder.Services.AddScoped<PurchaseOrderService>();
+builder.Services.AddScoped<ApplicationService>();
 
 // --- 3. ELSA SETUP ---
 builder.Services.AddElsa(elsa =>
@@ -77,6 +78,7 @@ builder.Services.AddElsa(elsa =>
     elsa.AddActivity<RejectOrderActivity>();
 
     elsa.AddWorkflow<PurchaseOrderApprovalWorkflow>();
+    elsa.AddWorkflow<ApplicationRequestWorkFlow>();
 });
 
 if (builder.Environment.IsDevelopment())
@@ -84,7 +86,7 @@ if (builder.Environment.IsDevelopment())
     EndpointSecurityOptions.DisableSecurity();
 }
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 
 app.UseRouting();
@@ -110,8 +112,8 @@ if (builder.Environment.IsProduction())
 // Database Auto-Migration
 if (app.Environment.IsDevelopment())
 {
-    await using var scope = app.Services.CreateAsyncScope();
-    var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+    AppDbContext appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await appDb.Database.MigrateAsync();
 }
 

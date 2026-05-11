@@ -13,7 +13,7 @@ public class ApproveOrderActivity : CodeActivity
 
     protected override async ValueTask ExecuteAsync(ActivityExecutionContext ctx)
     {
-        var store   = ctx.GetRequiredService<PurchaseOrderService>();
+        PurchaseOrderService store   = ctx.GetRequiredService<PurchaseOrderService>();
         int orderId = ctx.Get(OrderId);
         PurchaseOrder order   = await store.GetByIdAsync(orderId)
             ?? throw new InvalidOperationException($"PO #{orderId} not found.");

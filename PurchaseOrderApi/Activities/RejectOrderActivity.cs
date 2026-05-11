@@ -14,10 +14,10 @@ public class RejectOrderActivity : CodeActivity
 
     protected override async ValueTask ExecuteAsync(ActivityExecutionContext ctx)
     {
-        var store   = ctx.GetRequiredService<PurchaseOrderService>();
-        var orderId = ctx.Get(OrderId);
-        var reason  = ctx.Get(Reason);
-        var order   = await store.GetByIdAsync(orderId)
+        PurchaseOrderService store   = ctx.GetRequiredService<PurchaseOrderService>();
+        int orderId = ctx.Get(OrderId);
+        string? reason  = ctx.Get(Reason);
+        PurchaseOrder order   = await store.GetByIdAsync(orderId)
             ?? throw new InvalidOperationException($"PO #{orderId} not found.");
 
         order.Status          = OrderStatus.Rejected;
