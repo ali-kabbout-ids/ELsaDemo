@@ -9,6 +9,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<ApplicationRequest> ApplicationRequests => Set<ApplicationRequest>();
 
+    public DbSet<MokhatabatRequest> MokhatabatRequests => Set<MokhatabatRequest>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<PurchaseOrder>(b =>
@@ -53,6 +55,33 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasConversion<string>()
                 .HasMaxLength(50)
                 .IsRequired();
+        });
+
+        modelBuilder.Entity<MokhatabatRequest>(b =>
+        {
+            b.ToTable("MokhatabatRequests");
+            b.HasKey(x => x.Id);
+
+            b.HasOne(x => x.ApplicationRequest)
+                .WithMany()
+                .HasForeignKey(x => x.ApplicationRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.Property(x => x.WorkflowInstanceId).HasMaxLength(255);
+            b.HasIndex(x => x.WorkflowInstanceId);
+
+            b.Property(x => x.Step1Decision).HasMaxLength(300);
+            b.Property(x => x.Step1Reason).HasMaxLength(2000);
+
+            b.Property(x => x.Step2Decision).HasMaxLength(300);
+            b.Property(x => x.Step2Reason).HasMaxLength(2000);
+
+            b.Property(x => x.Status)
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .IsRequired();
+
+            b.Property(x => x.CreatedAt).IsRequired();
         });
 
         // Store enum as string so the DB is readable

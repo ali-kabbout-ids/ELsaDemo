@@ -10,11 +10,13 @@ using PurchaseOrderApi.Workflows;
 using Elsa.Workflows;
 using Elsa.Workflows.Runtime.Requests;
 using PurchaseOrderApi.Models;
+using PurchaseOrderApi.Activities.ApplicationActivities.MokhatabatActivities;
 
 [ApiController]
 [Route("api/applications")]
 public class ApplicationsController(
     ApplicationService svc,
+    MokhatabatService mokhatabatService,
     IWorkflowRuntime workflowRuntime,
     IWorkflowDispatcher workflowDispatcher) : ControllerBase
 {
@@ -24,14 +26,14 @@ public class ApplicationsController(
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
-        PurchaseOrderApi.Models.ApplicationRequest? app = await svc.GetByIdAsync(id);
+        ApplicationRequest? app = await svc.GetByIdAsync(id);
         return app is null ? NotFound() : Ok(app);
     }
 
     [HttpPost]
     public async Task<IActionResult> Start([FromBody] StartApplicationRequest req)
     {
-        PurchaseOrderApi.Models.ApplicationRequest app = await svc.CreateAsync(req);
+        ApplicationRequest app = await svc.CreateAsync(req);
         IWorkflowClient client = await workflowRuntime.CreateClientAsync();
 
         RunWorkflowInstanceResponse result = await client.CreateAndRunInstanceAsync(new CreateAndRunWorkflowInstanceRequest
@@ -69,9 +71,37 @@ public class ApplicationsController(
     public Task<IActionResult> FinalMo3awenDecide(int id, [FromBody] ReviewDecisionRequest req)
         => Resume<WaitForFinalMo3awenActivity>(id, req);
 
-    [HttpPost("{id:int}/has-mane3/decide")]
-    public Task<IActionResult> HasMane3Decide(int id, [FromBody] ReviewDecisionRequest req)
-        => Resume<WaitForHasMane3AnouniActivity>(id, req);
+    [HttpGet("{id:int}/has-mane3")]
+    public async Task<IActionResult> HasMane3Check(
+        int id,
+        [FromQuery] string decision = "no_obstacle",
+        [FromQuery] string reason = "")
+    {
+        var app = await svc.GetByIdAsync(id);
+        if (app is null) return NotFound($"Application #{id} not found.");
+
+        return Ok(new
+        {
+            decision = decision.ToLower(),
+            reason = reason
+        });
+    }
+
+
+    [HttpGet("{id:int}/mo5atabat")]
+    public async Task<IActionResult> GetMo5atabat(int id)
+    {
+        MokhatabatRequest? record = await mokhatabatService.GetByApplicationIdAsync(id);
+        return record is null ? NotFound() : Ok(record);
+    }
+
+    [HttpPost("{id:int}/mo5atabat/step1/decide")]
+    public Task<IActionResult> Mo5atabatStep1Decide(int id, [FromBody] ReviewDecisionRequest req)
+        => ResumeMo5<MokhatabatStep1Activity>(id, req);
+
+    [HttpPost("{id:int}/mo5atabat/step2/decide")]
+    public Task<IActionResult> Mo5atabatStep2Decide(int id, [FromBody] ReviewDecisionRequest req)
+        => ResumeMo5<MokhatabatStep2Activity>(id, req);
 
     private async Task<IActionResult> Resume<TActivity>(int appId, ReviewDecisionRequest req)
         where TActivity : IActivity
@@ -98,6 +128,26 @@ public class ApplicationsController(
 
         await workflowDispatcher.DispatchAsync(request, options);
 
+        return Ok(await svc.GetByIdAsync(appId));
+    }
+
+    private async Task<IActionResult> ResumeMo5<TActivity>(int appId, ReviewDecisionRequest req)
+    where TActivity : IActivity
+    {
+        string activityTypeName = ActivityTypeNameHelper.GenerateTypeName<TActivity>();
+        string stimulus = appId.ToString();
+
+        DispatchTriggerWorkflowsRequest request = new DispatchTriggerWorkflowsRequest(activityTypeName, stimulus)
+        {
+            CorrelationId = $"mo5-{appId}", 
+            Input = new Dictionary<string, object>
+            {
+                ["decision"] = req.Decision,
+                ["reason"] = req.Reason ?? string.Empty
+            }
+        };
+
+        await workflowDispatcher.DispatchAsync(request, new DispatchWorkflowOptions());
         return Ok(await svc.GetByIdAsync(appId));
     }
 }

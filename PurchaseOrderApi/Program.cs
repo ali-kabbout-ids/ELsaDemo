@@ -9,6 +9,7 @@ using Elsa.Persistence.EFCore.Extensions;
 using Elsa.Persistence.EFCore.Modules.Management;
 using Elsa.Persistence.EFCore.Modules.Runtime;
 using Elsa.Resilience.Extensions;
+using PurchaseOrderApi.Activities.ApplicationActivities.MokhatabatActivities;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddDbContext<AppDbContext>(opts => opts.UseSqlServer(connStr));
 builder.Services.AddScoped<PurchaseOrderService>();
 builder.Services.AddScoped<ApplicationService>();
+builder.Services.AddScoped<MokhatabatService>();
 
 // --- 3. ELSA SETUP ---
 builder.Services.AddElsa(elsa =>
@@ -76,9 +78,12 @@ builder.Services.AddElsa(elsa =>
     elsa.AddActivity<WaitForApprovalActivity>();
     elsa.AddActivity<ApproveOrderActivity>();
     elsa.AddActivity<RejectOrderActivity>();
+    elsa.AddActivity<MokhatabatStep1Activity>();
+    elsa.AddActivity<MokhatabatStep2Activity>();
 
     elsa.AddWorkflow<PurchaseOrderApprovalWorkflow>();
     elsa.AddWorkflow<ApplicationRequestWorkFlow>();
+    elsa.AddWorkflow<MokhatabatWorkflow>();
 });
 
 if (builder.Environment.IsDevelopment())

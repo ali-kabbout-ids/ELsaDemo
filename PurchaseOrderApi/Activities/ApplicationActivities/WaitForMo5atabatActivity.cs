@@ -9,15 +9,15 @@ using static PurchaseOrderApi.Helpers.StringHelper;
 namespace PurchaseOrderApi.Activities;
 
 /// <summary>
-/// STEP 4b — Mo5atabat Sub-Workflow (Correspondence processing).
+/// STEP 4b — Mokhatabat Sub-Workflow (Correspondence processing).
 ///
-/// In a real system this would invoke a separate Mo5atabat workflow via InvokeWorkflow activity.
+/// In a real system this would invoke a separate Mokhatabat workflow via InvokeWorkflow activity.
 /// For PoC, it's modelled as a single suspend/resume bookmark that represents the sub-workflow
 /// completing and reporting back.
 ///
 /// Resumes when POST /api/applications/{id}/mo5atabat/decide is called.
 /// </summary>
-[Activity("ApplicationFlow", "Suspends while the Mo5atabat (Correspondence) sub-workflow runs")]
+[Activity("ApplicationFlow", "Suspends while the Mokhatabat (Correspondence) sub-workflow runs")]
 public class WaitForMo5atabatActivity : Activity
 {
     [Input(Description = "Application ID")]
@@ -46,7 +46,7 @@ public class WaitForMo5atabatActivity : Activity
             AutoBurn = true
         });
 
-        Console.WriteLine($"[FLOW] ⏸  App #{appId} — Mo5atabat sub-workflow started. Waiting for completion.");
+        Console.WriteLine($"[FLOW] ⏸  App #{appId} — Mokhatabat sub-workflow started. Waiting for completion.");
     }
 
     private async ValueTask OnResumedAsync(ActivityExecutionContext ctx)
@@ -66,7 +66,7 @@ public class WaitForMo5atabatActivity : Activity
 
         ctx.Set(Decision, decision);
 
-        Console.WriteLine($"[FLOW] ▶  App #{appId} — Mo5atabat sub-workflow: '{decision}'");
+        Console.WriteLine($"[FLOW] ▶  App #{appId} — Mokhatabat sub-workflow: '{decision}'");
         await ctx.CompleteActivityAsync();
     }
 }

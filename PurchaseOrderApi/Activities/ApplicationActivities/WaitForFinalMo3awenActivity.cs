@@ -9,7 +9,7 @@ using static PurchaseOrderApi.Helpers.StringHelper;
 namespace PurchaseOrderApi.Activities;
 
 /// <summary>
-/// STEP 5 — Final Mo3awen l Cho3ba sign-off after Mo5atabat path merges.
+/// STEP 5 — Final Mo3awen l Cho3ba sign-off after Mokhatabat path merges.
 /// This is distinct from STEP 2 — it represents the final notification/action
 /// by Mo3awen before the Has Mane3 Anouni check.
 ///
