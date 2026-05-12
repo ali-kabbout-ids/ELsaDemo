@@ -12,8 +12,8 @@ public class NotifyManagerActivity : CodeActivity
 
     protected override async ValueTask ExecuteAsync(ActivityExecutionContext ctx)
     {
-        var id    = ctx.Get(OrderId);
-        var email = ctx.Get(ManagerEmail);
+        int id    = ctx.Get(OrderId);
+        string? email = ctx.Get(ManagerEmail);
 
         Console.WriteLine($"[ELSA] NotifyManager  📧  Sent to '{email}' for PO #{id}");
         Console.WriteLine($"[ELSA]   → To approve: POST /api/orders/{id}/decide {{\"decision\":\"approved\"}}");

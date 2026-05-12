@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PurchaseOrderApi.Data;
 
@@ -11,9 +12,11 @@ using PurchaseOrderApi.Data;
 namespace PurchaseOrderApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260508102650_0.0.1")]
+    partial class _001
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -112,63 +115,6 @@ namespace PurchaseOrderApi.Migrations
                     b.ToTable("ApplicationRequests", (string)null);
                 });
 
-            modelBuilder.Entity("PurchaseOrderApi.Models.MokhatabatRequest", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ApplicationRequestId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime?>("Step1DecidedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Step1Decision")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("Step1Reason")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<DateTime?>("Step2DecidedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Step2Decision")
-                        .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
-
-                    b.Property<string>("Step2Reason")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("WorkflowInstanceId")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApplicationRequestId");
-
-                    b.HasIndex("WorkflowInstanceId");
-
-                    b.ToTable("MokhatabatRequests", (string)null);
-                });
-
             modelBuilder.Entity("PurchaseOrderApi.Models.PurchaseOrder", b =>
                 {
                     b.Property<int>("Id")
@@ -214,17 +160,6 @@ namespace PurchaseOrderApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("PurchaseOrders", (string)null);
-                });
-
-            modelBuilder.Entity("PurchaseOrderApi.Models.MokhatabatRequest", b =>
-                {
-                    b.HasOne("PurchaseOrderApi.Models.ApplicationRequest", "ApplicationRequest")
-                        .WithMany()
-                        .HasForeignKey("ApplicationRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ApplicationRequest");
                 });
 #pragma warning restore 612, 618
         }

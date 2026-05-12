@@ -21,7 +21,7 @@ public class PurchaseOrdersController(
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateOrderRequest req)
     {
-        var order = await orderService.CreateAsync(req);
+        PurchaseOrder order = await orderService.CreateAsync(req);
         return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
     }
 
@@ -37,12 +37,12 @@ public class PurchaseOrdersController(
     [HttpPost("{id}/submit")]
     public async Task<IActionResult> Submit(int id, CancellationToken ct)
     {
-        var order = await orderService.GetByIdAsync(id);
+        PurchaseOrder? order = await orderService.GetByIdAsync(id);
         if (order is null)                        return NotFound($"PO #{id} not found.");
         if (order.Status != OrderStatus.Draft)
             return BadRequest($"PO #{id} is '{order.Status}'. Only Draft orders can be submitted.");
 
-        var result = await runtime.StartWorkflowAsync(
+        Elsa.Workflows.Runtime.Results.WorkflowExecutionResult result = await runtime.StartWorkflowAsync(
             PurchaseOrderApprovalWorkflow.DefinitionId,
             new StartWorkflowRuntimeParams
             {
@@ -67,26 +67,26 @@ public class PurchaseOrdersController(
     public async Task<IActionResult> Decide(int id,
         [FromBody] ApprovalDecisionRequest req, CancellationToken ct)
     {
-        var order = await orderService.GetByIdAsync(id);
+        PurchaseOrder? order = await orderService.GetByIdAsync(id);
         if (order is null) return NotFound($"PO #{id} not found.");
         if (order.Status != OrderStatus.PendingApproval)
             return BadRequest($"PO #{id} is not pending approval (status: {order.Status}).");
 
-        var decision = req.Decision.ToLower();
+        string decision = req.Decision.ToLower();
         if (decision != "approved" && decision != "rejected")
             return BadRequest("Decision must be 'approved' or 'rejected'.");
 
-        var instance = (await instanceStore.FindManyAsync(
+        Elsa.Workflows.Management.Entities.WorkflowInstance? instance = (await instanceStore.FindManyAsync(
             new WorkflowInstanceFilter { CorrelationId = id.ToString() }, ct))
             .FirstOrDefault(i => i.SubStatus == WorkflowSubStatus.Suspended);
 
         if (instance is null)
             return NotFound($"No suspended workflow for PO #{id}.");
 
-        var bookmarks = await bookmarkStore.FindManyAsync(
+        IEnumerable<Elsa.Workflows.Runtime.Entities.StoredBookmark> bookmarks = await bookmarkStore.FindManyAsync(
             new BookmarkFilter { WorkflowInstanceId = instance.Id }, ct);
 
-        var bookmark = bookmarks.FirstOrDefault();
+        Elsa.Workflows.Runtime.Entities.StoredBookmark? bookmark = bookmarks.FirstOrDefault();
         if (bookmark is null) return NotFound("Bookmark not found.");
 
         await runtime.ResumeWorkflowAsync(

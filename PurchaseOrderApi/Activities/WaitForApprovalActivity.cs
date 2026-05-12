@@ -1,6 +1,7 @@
 using Elsa.Workflows;
 using Elsa.Workflows.Attributes;
 using Elsa.Workflows.Models;
+using static PurchaseOrderApi.Helpers.StringHelper;
 
 namespace PurchaseOrderApi.Activities;
 
@@ -9,7 +10,7 @@ namespace PurchaseOrderApi.Activities;
 /// No thread is blocked. The HTTP request returns immediately.
 /// When ResumeWorkflowAsync is called, OnResumedAsync fires.
 [Activity("Demo", "Suspends and waits for manager approval")]
-public class WaitForApprovalActivity : Activity   // NOTE: Activity not CodeActivity
+public class WaitForApprovalActivity : Activity 
 {
     [Output] public Output<string>? Decision { get; set; }
     [Output] public Output<string>? Reason   { get; set; }
@@ -24,14 +25,13 @@ public class WaitForApprovalActivity : Activity   // NOTE: Activity not CodeActi
 
         Console.WriteLine("[ELSA] WaitForApproval ⏸  Workflow SUSPENDED. Bookmark created.");
         return ValueTask.CompletedTask;
-        // DO NOT call CompleteActivityAsync here — called inside OnResumedAsync
     }
 
     private async ValueTask OnResumedAsync(ActivityExecutionContext ctx)
     {
-        var input    = ctx.WorkflowExecutionContext.Input ?? new Dictionary<string, object>();
-        var decision = GetStr(input, "decision") ?? "rejected";
-        var reason   = GetStr(input, "reason")   ?? string.Empty;
+        IDictionary<string, object> input    = ctx.WorkflowExecutionContext.Input ?? new Dictionary<string, object>();
+        string decision = GetStr(input, "decision") ?? "rejected";
+        string reason   = GetStr(input, "reason")   ?? string.Empty;
 
         ctx.Set(Decision, decision);
         ctx.Set(Reason,   reason);
@@ -39,7 +39,4 @@ public class WaitForApprovalActivity : Activity   // NOTE: Activity not CodeActi
         Console.WriteLine($"[ELSA] WaitForApproval ▶  RESUMED. Decision='{decision}' Reason='{reason}'");
         await ctx.CompleteActivityAsync();
     }
-
-    private static string? GetStr(IDictionary<string, object> d, string k)
-        => d.TryGetValue(k, out var v) ? v?.ToString() : null;
 }

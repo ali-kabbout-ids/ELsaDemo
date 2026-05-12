@@ -16,10 +16,10 @@ public class PurchaseOrderApprovalWorkflow : WorkflowBase
     protected override void Build(IWorkflowBuilder builder)
     {
         // ── Typed Workflow Variables ──────────────────────────────────────────
-        var orderIdVar   = builder.WithVariable<int>("OrderId",    default);
-        var managerEmail = builder.WithVariable<string>("Manager",  "");
-        var decisionVar  = builder.WithVariable<string>("Decision", "");
-        var reasonVar    = builder.WithVariable<string>("Reason",   "");
+        Elsa.Workflows.Memory.Variable<int> orderIdVar   = builder.WithVariable<int>("OrderId",    default);
+        Elsa.Workflows.Memory.Variable<string> managerEmail = builder.WithVariable<string>("Manager",  "");
+        Elsa.Workflows.Memory.Variable<string> decisionVar  = builder.WithVariable<string>("Decision", "");
+        Elsa.Workflows.Memory.Variable<string> reasonVar    = builder.WithVariable<string>("Reason",   "");
 
         builder.Root = new Flowchart
         {

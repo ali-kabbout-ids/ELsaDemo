@@ -14,7 +14,7 @@ public class WorkflowDebugController(
     [HttpGet("instances")]
     public async Task<IActionResult> GetInstances(CancellationToken ct)
     {
-        var all = await instances.FindManyAsync(new WorkflowInstanceFilter(), ct);
+        IEnumerable<Elsa.Workflows.Management.Entities.WorkflowInstance> all = await instances.FindManyAsync(new WorkflowInstanceFilter(), ct);
         return Ok(all.Select(i => new
         {
             i.Id, i.DefinitionId, i.CorrelationId,
@@ -26,11 +26,11 @@ public class WorkflowDebugController(
     [HttpGet("instances/{instanceId}")]
     public async Task<IActionResult> GetInstance(string instanceId, CancellationToken ct)
     {
-        var inst = await instances.FindAsync(
+        Elsa.Workflows.Management.Entities.WorkflowInstance? inst = await instances.FindAsync(
             new WorkflowInstanceFilter { Id = instanceId }, ct);
         if (inst is null) return NotFound();
 
-        var bms = await bookmarks.FindManyAsync(
+        IEnumerable<Elsa.Workflows.Runtime.Entities.StoredBookmark> bms = await bookmarks.FindManyAsync(
             new BookmarkFilter { WorkflowInstanceId = instanceId }, ct);
 
         return Ok(new
@@ -45,7 +45,7 @@ public class WorkflowDebugController(
     [HttpGet("bookmarks")]
     public async Task<IActionResult> GetBookmarks(CancellationToken ct)
     {
-        var bms = await bookmarks.FindManyAsync(new BookmarkFilter(), ct);
+        IEnumerable<Elsa.Workflows.Runtime.Entities.StoredBookmark> bms = await bookmarks.FindManyAsync(new BookmarkFilter(), ct);
         return Ok(bms.Select(b => new
             { b.Id, b.WorkflowInstanceId, b.ActivityTypeName, b.CreatedAt }));
     }
