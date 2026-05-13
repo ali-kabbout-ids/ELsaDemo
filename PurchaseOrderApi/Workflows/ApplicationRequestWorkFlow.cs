@@ -14,8 +14,10 @@ using Endpoint = Elsa.Workflows.Activities.Flowchart.Models.Endpoint;
 using static PurchaseOrderApi.Helpers.DictionaryHelper;
 using Elsa.Http;
 using Elsa.Workflows.Runtime.Activities;
+using PurchaseOrderApi.Enums;
 
 namespace PurchaseOrderApi.Workflows;
+
 public class ApplicationRequestWorkFlow : WorkflowBase
 {
     public static string DefinitionId => nameof(ApplicationRequestWorkFlow);
@@ -59,21 +61,29 @@ public class ApplicationRequestWorkFlow : WorkflowBase
         }.WithLayout(x: 220, y: 100, w: 236, h: 68, displayText: "Set Mokhatabat Flag");
 
         // ── STEP 1 ───────────────────────────────────────────────────────────
-        WaitForI3almKanouniActivity waitI3alm = new WaitForI3almKanouniActivity
+        WaitForApplicationApprovalActivity waitI3lam = new WaitForApplicationApprovalActivity
         {
-            Id = "WaitI3almKanouni",
-            Name = "I3alm Kanouni Review",
+            Id = "WaitI3lamKanouni",
+            Name = "I3lam Kanouni Review",
             ApplicationId = new Input<int>(appIdVar),
+            RequiredRole = new Input<ApprovalRole>(_ => ApprovalRole.I3lamKanouni),
+            StepName = new Input<string>(_ => "I3lam Kanouni Review"),
+            PendingStatus = new Input<ApplicationStatus>(_ => ApplicationStatus.PendingI3almKanouniReview),
+            CompletedStatus = new Input<ApplicationStatus>(_ => ApplicationStatus.PendingMo3awenReview),
             Decision = new Output<string>(i3almDecisionVar),
             Reason = new Output<string>(i3almReasonVar)
         }.WithLayout(x: 530, y: 100, w: 310, h: 68, displayText: "I3alm Kanouni Review");
 
         // ── STEP 2 ───────────────────────────────────────────────────────────
-        WaitForMo3awenCho3baActivity waitMo3awen = new WaitForMo3awenCho3baActivity
+        WaitForApplicationApprovalActivity waitMo3awen = new WaitForApplicationApprovalActivity
         {
             Id = "WaitMo3awenCho3ba",
             Name = "Mo3awen Cho3ba Review",
             ApplicationId = new Input<int>(appIdVar),
+            RequiredRole = new Input<ApprovalRole>(ApprovalRole.Mo3awenCho3ba),
+            StepName = new Input<string>(_ => "Mo3awen Cho3ba Review"),
+            PendingStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingMo3awenReview),
+            CompletedStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingMo3awenReview),
             Decision = new Output<string>(mo3awenDecisionVar),
             Reason = new Output<string>(mo3awenReasonVar)
         }.WithLayout(x: 910, y: 100, w: 342, h: 68, displayText: "Mo3awen Cho3ba Review");
@@ -114,11 +124,17 @@ public class ApplicationRequestWorkFlow : WorkflowBase
         }.WithLayout(x: 1040, y: 531, w: 310, h: 68, displayText: "Run Mokhatabat Sub-Workflow");
 
         // ── STEP 5 ───────────────────────────────────────────────────────────
-        WaitForFinalMo3awenActivity waitFinalMo3awen = new WaitForFinalMo3awenActivity
+        WaitForApplicationApprovalActivity waitFinalMo3awen = new WaitForApplicationApprovalActivity
         {
             Id = "WaitFinalMo3awen",
             Name = "Final Mo3awen Sign-off",
-            ApplicationId = new Input<int>(appIdVar)
+            ApplicationId = new Input<int>(appIdVar),
+            RequiredRole = new Input<ApprovalRole>(_ => ApprovalRole.Mo3awenCho3ba), 
+            StepName = new Input<string>(_ => "Final Mo3awen Sign-off"),
+            PendingStatus = new Input<ApplicationStatus>(_ => ApplicationStatus.PendingFinalMo3awenReview),
+            CompletedStatus = new Input<ApplicationStatus>(_ => ApplicationStatus.PendingHasMane3Check),
+            Decision = new Output<string>(builder.WithVariable<string>()),
+            Reason = new Output<string>(builder.WithVariable<string>())
         }.WithLayout(x: 1400, y: 531, w: 316, h: 68, displayText: "Final Mo3awen Sign-off");
 
         // ── STEP 6 — mark app as pending before the HTTP call ────────────────
@@ -206,7 +222,7 @@ public class ApplicationRequestWorkFlow : WorkflowBase
             Activities =
             {
                 setAppId, setMo5atabatNeeded,
-                waitI3alm, waitMo3awen,
+                waitI3lam, waitMo3awen,
                 conditionBothApproved, incrementRound,
                 checkMo5atabat, waitMo5atabat,
                 waitFinalMo3awen,
@@ -221,13 +237,13 @@ public class ApplicationRequestWorkFlow : WorkflowBase
             Connections =
             {
                 new Connection(new Endpoint(setAppId,           "Done"), new Endpoint(setMo5atabatNeeded)),
-                new Connection(new Endpoint(setMo5atabatNeeded, "Done"), new Endpoint(waitI3alm)),
+                new Connection(new Endpoint(setMo5atabatNeeded, "Done"), new Endpoint(waitI3lam)),
 
-                new Connection(new Endpoint(waitI3alm,   "Done"), new Endpoint(waitMo3awen)),
+                new Connection(new Endpoint(waitI3lam,   "Done"), new Endpoint(waitMo3awen)),
                 new Connection(new Endpoint(waitMo3awen, "Done"), new Endpoint(conditionBothApproved)),
 
                 new Connection(new Endpoint(conditionBothApproved, "False"), new Endpoint(incrementRound)),
-                new Connection(new Endpoint(incrementRound,        "Done"),  new Endpoint(waitI3alm)),
+                new Connection(new Endpoint(incrementRound,        "Done"),  new Endpoint(waitI3lam)),
                 new Connection(new Endpoint(conditionBothApproved, "True"),  new Endpoint(checkMo5atabat)),
 
                 new Connection(new Endpoint(checkMo5atabat, "True"),  new Endpoint(waitMo5atabat)),

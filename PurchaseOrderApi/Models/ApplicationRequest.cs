@@ -40,6 +40,10 @@ namespace PurchaseOrderApi.Models
 
         public string? RejectionReason { get; set; }
 
+        public string? CurrentRequiredRole { get; set; }
+
+        public string? CurrentStepName { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? UpdatedAt { get; set; }

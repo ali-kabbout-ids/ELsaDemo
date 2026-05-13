@@ -78,6 +78,9 @@ builder.Services.AddElsa(elsa =>
     elsa.AddActivity<WaitForApprovalActivity>();
     elsa.AddActivity<ApproveOrderActivity>();
     elsa.AddActivity<RejectOrderActivity>();
+
+    elsa.AddActivity<WaitForApplicationApprovalActivity>();
+
     elsa.AddActivity<MokhatabatStep1Activity>();
     elsa.AddActivity<MokhatabatStep2Activity>();
 

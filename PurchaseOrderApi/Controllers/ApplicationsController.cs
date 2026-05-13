@@ -55,17 +55,42 @@ public class ApplicationsController(
 
     // ── Decision endpoints ───────────────────────────────────────────────
 
-    [HttpPost("{id:int}/i3lam-kanouni/decide")]
-    public Task<IActionResult> I3lamKanouniDecide(int id, [FromBody] ReviewDecisionRequest req)
-        => Resume<WaitForI3almKanouniActivity>(id, req);
+    [HttpPost("{id:int}/decide")]
+    public async Task<IActionResult> Decide(int id, [FromBody] ReviewDecisionRequest req)
+    {
+        var app = await svc.GetByIdAsync(id);
+        if (app is null)
+            return NotFound($"Application #{id} not found.");
 
-    [HttpPost("{id:int}/mo3awen/decide")]
-    public Task<IActionResult> Mo3awenDecide(int id, [FromBody] ReviewDecisionRequest req)
-        => Resume<WaitForMo3awenCho3baActivity>(id, req);
+        // ── Role check ────────────────────────────────────────────────────────
+        if (string.IsNullOrEmpty(app.CurrentRequiredRole))
+            return BadRequest("This application is not waiting for any decision right now.");
 
-    [HttpPost("{id:int}/final-mo3awen/decide")]
-    public Task<IActionResult> FinalMo3awenDecide(int id, [FromBody] ReviewDecisionRequest req)
-        => Resume<WaitForFinalMo3awenActivity>(id, req);
+        if (!string.Equals(app.CurrentRequiredRole, req.UserRole, StringComparison.OrdinalIgnoreCase))
+            return StatusCode(403, new
+            {
+                error = "Role mismatch",
+                message = $"Step '{app.CurrentStepName}' requires role '{app.CurrentRequiredRole}'. " +
+                          $"You submitted as '{req.UserRole}'."
+            });
+
+        string? activityTypeName = ActivityTypeNameHelper.GenerateTypeName<WaitForApplicationApprovalActivity>();
+
+        await workflowDispatcher.DispatchAsync(
+            new DispatchTriggerWorkflowsRequest(activityTypeName, id.ToString())
+            {
+                CorrelationId = id.ToString(),
+                Input = new Dictionary<string, object>
+                {
+                    ["decision"] = req.Decision,
+                    ["reason"] = req.Reason ?? string.Empty,
+                    ["userRole"] = req.UserRole           
+                }
+            },
+            new DispatchWorkflowOptions());
+
+        return Ok(await svc.GetByIdAsync(id));
+    }
 
     [HttpGet("{id:int}/has-mane3")]
     public async Task<IActionResult> HasMane3Check(
@@ -98,34 +123,6 @@ public class ApplicationsController(
     [HttpPost("{id:int}/mo5atabat/step2/decide")]
     public Task<IActionResult> Mo5atabatStep2Decide(int id, [FromBody] ReviewDecisionRequest req)
         => ResumeMo5<MokhatabatStep2Activity>(id, req);
-
-    private async Task<IActionResult> Resume<TActivity>(int appId, ReviewDecisionRequest req)
-        where TActivity : IActivity
-    {
-        ApplicationRequest? app = await svc.GetByIdAsync(appId);
-        if (app is null) return NotFound();
-
-        string activityTypeName = ActivityTypeNameHelper.GenerateTypeName<TActivity>();
-        string stimulus = appId.ToString();
-        DispatchTriggerWorkflowsRequest request = new DispatchTriggerWorkflowsRequest(activityTypeName, stimulus)
-        {
-            CorrelationId = appId.ToString(),
-            Input = new Dictionary<string, object>
-            {
-                ["decision"] = req.Decision,
-                ["reason"] = req.Reason ?? string.Empty
-            }
-        };
-
-        DispatchWorkflowOptions options = new DispatchWorkflowOptions
-        {
-            Channel = null // Uses the default processing channel
-        };
-
-        await workflowDispatcher.DispatchAsync(request, options);
-
-        return Ok(await svc.GetByIdAsync(appId));
-    }
 
     private async Task<IActionResult> ResumeMo5<TActivity>(int appId, ReviewDecisionRequest req)
     where TActivity : IActivity
