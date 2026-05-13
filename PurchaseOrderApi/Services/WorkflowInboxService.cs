@@ -3,8 +3,6 @@ using Elsa.Workflows.Management.Filters;
 using Elsa.Workflows.Runtime;
 using Elsa.Workflows.Runtime.Filters;
 using Elsa.Workflows.Runtime.Parameters;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using PurchaseOrderApi.Activities;
 using PurchaseOrderApi.Dtos;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -15,34 +13,22 @@ public sealed class WorkflowInboxService(
     IBookmarkStore bookmarkStore,
     IWorkflowInstanceStore workflowInstanceStore,
     IWorkflowRuntime workflowRuntime,
-    IActivityExecutionStore activityExecutionStore)  // ADD THIS
+    IActivityExecutionStore activityExecutionStore)
 {
+    private const string ActivityTypeName =
+        "ApplicationFlow.WaitForApplicationApprovalActivity";
+
     /// <summary>
     /// Returns all pending approval bookmarks for the given role.
     /// </summary>
-    /// 
-    private const string ActivityTypeName =
-    "ApplicationFlow.WaitForApplicationApprovalActivity";
-
     public async Task<List<InboxItemDto>> GetPendingItemsAsync(string role)
     {
-        // BookmarkFilter does not support filtering by activity type name directly in this Elsa version.
-        // We'll query bookmarks and filter in-memory by StoredBookmark.ActivityTypeName.
-        //IEnumerable<Elsa.Workflows.Runtime.Entities.StoredBookmark> bookmarks = (await bookmarkStore.FindManyAsync(
-        //    new BookmarkFilter(),
-        //    CancellationToken.None))
-        //    .Where(x => string.Equals(x.ActivityTypeName, nameof(WaitForApplicationApprovalActivity), StringComparison.OrdinalIgnoreCase));
+        IEnumerable<Elsa.Workflows.Runtime.Entities.StoredBookmark> allBookmarks =
+            await bookmarkStore.FindManyAsync(new BookmarkFilter(), CancellationToken.None);
 
-
-
-        var allBookmarks = await bookmarkStore.FindManyAsync(
-          new BookmarkFilter(),
-          CancellationToken.None);
-
-        var bookmarks = allBookmarks
-            .Where(x => x.ActivityTypeName == ActivityTypeName)
+        List<Elsa.Workflows.Runtime.Entities.StoredBookmark> bookmarks = allBookmarks
+            .Where(x => string.Equals(x.ActivityTypeName, ActivityTypeName, StringComparison.Ordinal))
             .ToList();
-
 
         List<InboxItemDto> results = new();
 
@@ -51,22 +37,27 @@ public sealed class WorkflowInboxService(
             if (string.IsNullOrWhiteSpace(bookmark.ActivityInstanceId))
                 continue;
 
-            Elsa.Workflows.Management.Entities.WorkflowInstance? instance = await workflowInstanceStore.FindAsync(
-                new WorkflowInstanceFilter { Id = bookmark.WorkflowInstanceId },
-                CancellationToken.None);
+            // Bookmark.ActivityInstanceId is the *activity execution record* id (same as ActivityExecutionRecords.Id
+            // in SQL), not ActivityNodeId (graph node) nor ActivityId (definition node id, e.g. WaitI3lamKanouni).
+            Elsa.Workflows.Runtime.Entities.ActivityExecutionRecord? executionRecord =
+                await activityExecutionStore.FindAsync(
+                    new ActivityExecutionRecordFilter
+                    {
+                        WorkflowInstanceId = bookmark.WorkflowInstanceId,
+                        Id = bookmark.ActivityInstanceId
+                    },
+                    CancellationToken.None);
 
-            if (instance is null)
+            if (executionRecord is null ||
+                executionRecord.ActivityState is null ||
+                executionRecord.ActivityState.Count == 0)
                 continue;
 
-            JsonNode? state = ToJsonNode(instance.WorkflowState);
-            if (state is null)
+            JsonNode? activityState = ParseActivityStateToJson(executionRecord.ActivityState);
+            if (activityState is null)
                 continue;
 
-            JsonNode? activityContext = FindActivityExecutionContextNode(state, bookmark.ActivityInstanceId);
-            if (activityContext is null)
-                continue;
-
-            string? requiredRole = FindFirstString(activityContext, "RequiredRole");
+            string? requiredRole = GetJsonString(activityState["RequiredRole"]);
             if (string.IsNullOrWhiteSpace(requiredRole))
                 continue;
 
@@ -74,11 +65,24 @@ public sealed class WorkflowInboxService(
                 !string.Equals(requiredRole, role, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            string stepName = FindFirstString(activityContext, "StepName") ?? string.Empty;
+            string stepName = GetJsonString(activityState["StepName"]) ?? string.Empty;
 
-            int? appIdFromActivity = FindFirstInt(activityContext, "ApplicationId");
-            int? appIdFromVariables = FindWorkflowVariableInt(state, "ApplicationId");
-            int appId = appIdFromActivity ?? appIdFromVariables ?? 0;
+            int appId = 0;
+            string? appIdStr = GetJsonString(activityState["ApplicationId"]);
+            if (!int.TryParse(appIdStr, out appId))
+            {
+                Elsa.Workflows.Management.Entities.WorkflowInstance? instance =
+                    await workflowInstanceStore.FindAsync(
+                        new WorkflowInstanceFilter { Id = bookmark.WorkflowInstanceId },
+                        CancellationToken.None);
+
+                if (instance is not null)
+                {
+                    JsonNode? stateJson = JsonNode.Parse(JsonSerializer.Serialize(instance.WorkflowState));
+                    if (stateJson is not null)
+                        appId = FindWorkflowVariableInt(stateJson, "ApplicationId") ?? 0;
+                }
+            }
 
             results.Add(new InboxItemDto(
                 WorkflowInstanceId: bookmark.WorkflowInstanceId,
@@ -90,6 +94,38 @@ public sealed class WorkflowInboxService(
         }
 
         return results;
+    }
+
+    /// <summary>
+    /// Returns whether the given role matches the <c>RequiredRole</c> stored on the activity for this bookmark.
+    /// </summary>
+    public async Task<bool> ValidateRoleAsync(string bookmarkId, string role)
+    {
+        Elsa.Workflows.Runtime.Entities.StoredBookmark? bookmark = await bookmarkStore.FindAsync(
+            new BookmarkFilter { BookmarkId = bookmarkId },
+            CancellationToken.None);
+
+        if (bookmark is null || string.IsNullOrWhiteSpace(bookmark.ActivityInstanceId))
+            return false;
+
+        Elsa.Workflows.Runtime.Entities.ActivityExecutionRecord? executionRecord =
+            await activityExecutionStore.FindAsync(
+                new ActivityExecutionRecordFilter
+                {
+                    WorkflowInstanceId = bookmark.WorkflowInstanceId,
+                    Id = bookmark.ActivityInstanceId
+                },
+                CancellationToken.None);
+
+        if (executionRecord is null ||
+            executionRecord.ActivityState is null ||
+            executionRecord.ActivityState.Count == 0)
+            return false;
+
+        JsonNode? activityState = ParseActivityStateToJson(executionRecord.ActivityState);
+        string? requiredRole = GetJsonString(activityState?["RequiredRole"]);
+
+        return string.Equals(requiredRole, role, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -117,17 +153,12 @@ public sealed class WorkflowInboxService(
             });
     }
 
-    private static JsonNode? ToJsonNode(object? workflowState)
+    private static JsonNode? ParseActivityStateToJson(
+        System.Collections.Generic.IDictionary<string, object?> activityState)
     {
-        if (workflowState is null)
-            return null;
-
         try
         {
-            // WorkflowState is a complex object in Elsa. Serializing it and walking JSON
-            // is the most resilient approach across Elsa versions and storage formats.
-            string json = JsonSerializer.Serialize(workflowState);
-            return JsonNode.Parse(json);
+            return JsonNode.Parse(JsonSerializer.Serialize(activityState));
         }
         catch
         {
@@ -135,98 +166,35 @@ public sealed class WorkflowInboxService(
         }
     }
 
-    private static JsonNode? FindActivityExecutionContextNode(JsonNode root, string activityInstanceId)
+    private static string? GetJsonString(JsonNode? node)
     {
-        // Try the most likely keys first: ActivityInstanceId and Id.
-        return FindFirstObjectByPropertyValue(root, "ActivityInstanceId", activityInstanceId)
-               ?? FindFirstObjectByPropertyValue(root, "Id", activityInstanceId);
-    }
+        if (node is null)
+            return null;
 
-    private static JsonNode? FindFirstObjectByPropertyValue(JsonNode node, string propertyName, string propertyValue)
-    {
-        if (node is JsonObject obj)
+        if (node is JsonValue value)
         {
-            if (obj.TryGetPropertyValue(propertyName, out JsonNode? valueNode))
+            try
             {
-                string? val = valueNode?.GetValue<string?>();
-                if (string.Equals(val, propertyValue, StringComparison.OrdinalIgnoreCase))
-                    return obj;
+                return value.GetValue<string?>();
             }
-
-            foreach (KeyValuePair<string, JsonNode?> kvp in obj)
+            catch
             {
-                if (kvp.Value is null) continue;
-                JsonNode? found = FindFirstObjectByPropertyValue(kvp.Value, propertyName, propertyValue);
-                if (found is not null) return found;
-            }
-        }
-        else if (node is JsonArray arr)
-        {
-            foreach (JsonNode? item in arr)
-            {
-                if (item is null) continue;
-                JsonNode? found = FindFirstObjectByPropertyValue(item, propertyName, propertyValue);
-                if (found is not null) return found;
+                return value.ToJsonString().Trim('"');
             }
         }
 
-        return null;
-    }
-
-    private static string? FindFirstString(JsonNode node, string key)
-    {
-        JsonNode? found = FindFirstProperty(node, key);
-        if (found is null) return null;
-
-        try
-        {
-            if (found is JsonValue)
-                return found.GetValue<string?>();
-
-            // Some Elsa states store inputs as objects like { "Value": "..." }.
-            if (found is JsonObject obj && obj.TryGetPropertyValue("Value", out JsonNode? inner) && inner is not null)
-                return inner.GetValue<string?>();
-        }
-        catch
-        {
-            // ignored
-        }
-
-        return found.ToString();
-    }
-
-    private static int? FindFirstInt(JsonNode node, string key)
-    {
-        JsonNode? found = FindFirstProperty(node, key);
-        if (found is null) return null;
-
-        try
-        {
-            if (found is JsonValue)
-                return found.GetValue<int?>();
-
-            if (found is JsonObject obj && obj.TryGetPropertyValue("Value", out JsonNode? inner) && inner is not null)
-                return inner.GetValue<int?>();
-        }
-        catch
-        {
-            // ignored
-        }
-
-        if (int.TryParse(found.ToString(), out int value))
-            return value;
-
-        return null;
+        return node.ToString();
     }
 
     private static int? FindWorkflowVariableInt(JsonNode workflowState, string variableName)
     {
-        // Variables are usually stored under a "Variables" node. We'll look for an object
-        // with the variable name, then parse a primitive or nested "Value".
         JsonNode? varsNode = FindFirstProperty(workflowState, "Variables");
-        if (varsNode is null) return null;
+        if (varsNode is null)
+            return null;
 
-        if (varsNode is JsonObject varsObj && varsObj.TryGetPropertyValue(variableName, out JsonNode? varNode) && varNode is not null)
+        if (varsNode is JsonObject varsObj &&
+            varsObj.TryGetPropertyValue(variableName, out JsonNode? varNode) &&
+            varNode is not null)
         {
             if (varNode is JsonValue)
                 return varNode.GetValue<int?>();
@@ -235,8 +203,17 @@ public sealed class WorkflowInboxService(
             {
                 if (varObj.TryGetPropertyValue("Value", out JsonNode? inner) && inner is not null)
                 {
-                    try { return inner.GetValue<int?>(); } catch { /* ignored */ }
-                    if (int.TryParse(inner.ToString(), out int parsed)) return parsed;
+                    try
+                    {
+                        return inner.GetValue<int?>();
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+
+                    if (int.TryParse(inner.ToString(), out int parsed))
+                        return parsed;
                 }
             }
 
@@ -256,22 +233,27 @@ public sealed class WorkflowInboxService(
 
             foreach (KeyValuePair<string, JsonNode?> kvp in obj)
             {
-                if (kvp.Value is null) continue;
+                if (kvp.Value is null)
+                    continue;
+
                 JsonNode? found = FindFirstProperty(kvp.Value, key);
-                if (found is not null) return found;
+                if (found is not null)
+                    return found;
             }
         }
         else if (node is JsonArray arr)
         {
             foreach (JsonNode? item in arr)
             {
-                if (item is null) continue;
+                if (item is null)
+                    continue;
+
                 JsonNode? found = FindFirstProperty(item, key);
-                if (found is not null) return found;
+                if (found is not null)
+                    return found;
             }
         }
 
         return null;
     }
 }
-

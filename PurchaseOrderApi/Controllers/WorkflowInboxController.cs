@@ -37,10 +37,12 @@ public sealed class WorkflowInboxController(WorkflowInboxService inboxService) :
     {
         List<InboxItemDto> all = await inboxService.GetPendingItemsAsync(string.Empty);
         InboxItemDto? item = all.FirstOrDefault(x => x.BookmarkId == bookmarkId);
-        if (item is null) return NotFound();
+        if (item is null)
+            return NotFound();
 
-        if (!string.Equals(item.RequiredRole, role, StringComparison.OrdinalIgnoreCase))
-            return StatusCode(403);
+        bool isValid = await inboxService.ValidateRoleAsync(bookmarkId, role);
+        if (!isValid)
+            return StatusCode(403, new { error = "You do not have permission to action this task." });
 
         await inboxService.SubmitDecisionAsync(bookmarkId, request.Decision, request.Reason);
         return Ok();
