@@ -25,6 +25,8 @@ public class WaitForMo3awenCho3baActivity : Activity
     [Output(Description = "Reviewer reason / notes")]
     public Output<string>? Reason { get; set; }
 
+    [Output] public Output<bool>? RequiresMokhatabat { get; set; }
+
     protected override async ValueTask ExecuteAsync(ActivityExecutionContext ctx)
     {
         ApplicationService svc = ctx.GetRequiredService<ApplicationService>();
@@ -58,6 +60,14 @@ public class WaitForMo3awenCho3baActivity : Activity
         ApplicationService svc = ctx.GetRequiredService<ApplicationService>();
         int appId = ctx.Get(ApplicationId);
         ApplicationRequest? app = await svc.GetByIdAsync(appId);
+
+        bool mo5Needed = false;
+
+        if (input.TryGetValue("requiresMo5atabat", out var val))
+        {
+            mo5Needed = Convert.ToBoolean(val);
+        }
+
         if (app != null)
         {
             app.Mo3awenDecision = decision;
@@ -65,6 +75,8 @@ public class WaitForMo3awenCho3baActivity : Activity
             app.UpdatedAt = DateTime.UtcNow;
             await svc.SaveAsync(app);
         }
+
+        ctx.Set(RequiresMokhatabat, mo5Needed);
 
         ctx.Set(Decision, decision);
         ctx.Set(Reason, reason);

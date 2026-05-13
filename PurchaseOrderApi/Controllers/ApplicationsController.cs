@@ -113,7 +113,8 @@ public class ApplicationsController(
             Input = new Dictionary<string, object>
             {
                 ["decision"] = req.Decision,
-                ["reason"] = req.Reason ?? string.Empty
+                ["reason"] = req.Reason ?? string.Empty,
+                ["requiresMo5atabat"] = req.RequiresMo5atabat
             }
         };
 

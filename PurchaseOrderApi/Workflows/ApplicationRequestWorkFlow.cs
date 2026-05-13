@@ -75,7 +75,8 @@ public class ApplicationRequestWorkFlow : WorkflowBase
             Name = "Mo3awen Cho3ba Review",
             ApplicationId = new Input<int>(appIdVar),
             Decision = new Output<string>(mo3awenDecisionVar),
-            Reason = new Output<string>(mo3awenReasonVar)
+            Reason = new Output<string>(mo3awenReasonVar),
+            RequiresMokhatabat = new Output<bool>(mo5atabatNeededVar)
         }.WithLayout(x: 910, y: 100, w: 342, h: 68, displayText: "Mo3awen Cho3ba Review");
 
         // ── STEP 3 ── Both approved? ──────────────────────────────────────────
