@@ -66,10 +66,10 @@ public class ApplicationRequestWorkFlow : WorkflowBase
             Id = "WaitI3lamKanouni",
             Name = "I3lam Kanouni Review",
             ApplicationId = new Input<int>(appIdVar),
-            RequiredRole = new Input<ApprovalRole>(_ => ApprovalRole.I3lamKanouni),
-            StepName = new Input<string>(_ => "I3lam Kanouni Review"),
-            PendingStatus = new Input<ApplicationStatus>(_ => ApplicationStatus.PendingI3almKanouniReview),
-            CompletedStatus = new Input<ApplicationStatus>(_ => ApplicationStatus.PendingMo3awenReview),
+            RequiredRole = new Input<ApprovalRole>(ApprovalRole.I3lamKanouni),
+            StepName = new Input<string>("I3lam Kanouni Review"),
+            PendingStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingI3almKanouniReview),
+            CompletedStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingMo3awenReview),
             Decision = new Output<string>(i3almDecisionVar),
             Reason = new Output<string>(i3almReasonVar)
         }.WithLayout(x: 530, y: 100, w: 310, h: 68, displayText: "I3alm Kanouni Review");
@@ -81,7 +81,7 @@ public class ApplicationRequestWorkFlow : WorkflowBase
             Name = "Mo3awen Cho3ba Review",
             ApplicationId = new Input<int>(appIdVar),
             RequiredRole = new Input<ApprovalRole>(ApprovalRole.Mo3awenCho3ba),
-            StepName = new Input<string>(_ => "Mo3awen Cho3ba Review"),
+            StepName = new Input<string>("Mo3awen Cho3ba Review"),
             PendingStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingMo3awenReview),
             CompletedStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingMo3awenReview),
             Decision = new Output<string>(mo3awenDecisionVar),
@@ -129,10 +129,10 @@ public class ApplicationRequestWorkFlow : WorkflowBase
             Id = "WaitFinalMo3awen",
             Name = "Final Mo3awen Sign-off",
             ApplicationId = new Input<int>(appIdVar),
-            RequiredRole = new Input<ApprovalRole>(_ => ApprovalRole.Mo3awenCho3ba), 
-            StepName = new Input<string>(_ => "Final Mo3awen Sign-off"),
-            PendingStatus = new Input<ApplicationStatus>(_ => ApplicationStatus.PendingFinalMo3awenReview),
-            CompletedStatus = new Input<ApplicationStatus>(_ => ApplicationStatus.PendingHasMane3Check),
+            RequiredRole = new Input<ApprovalRole>(ApprovalRole.Mo3awenCho3ba), 
+            StepName = new Input<string>("Final Mo3awen Sign-off"),
+            PendingStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingFinalMo3awenReview),
+            CompletedStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingHasMane3Check),
             Decision = new Output<string>(builder.WithVariable<string>()),
             Reason = new Output<string>(builder.WithVariable<string>())
         }.WithLayout(x: 1400, y: 531, w: 316, h: 68, displayText: "Final Mo3awen Sign-off");
