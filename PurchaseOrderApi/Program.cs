@@ -31,12 +31,11 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("ElsaStudioPolicy", policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins("https://localhost:44314")
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowAnyMethod();
     });
 });
 
@@ -44,6 +43,7 @@ builder.Services.AddDbContext<AppDbContext>(opts => opts.UseSqlServer(connStr));
 builder.Services.AddScoped<PurchaseOrderService>();
 builder.Services.AddScoped<ApplicationService>();
 builder.Services.AddScoped<MokhatabatService>();
+builder.Services.AddScoped<WorkflowInboxService>();
 
 // --- 3. ELSA SETUP ---
 builder.Services.AddElsa(elsa =>
@@ -98,7 +98,7 @@ WebApplication app = builder.Build();
 
 
 app.UseRouting();
-app.UseCors("ElsaStudioPolicy");
+app.UseCors("AllowAll");
 
 app.UseWorkflows();
 
