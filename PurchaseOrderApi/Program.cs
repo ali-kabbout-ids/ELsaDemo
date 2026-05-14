@@ -10,6 +10,8 @@ using Elsa.Persistence.EFCore.Modules.Management;
 using Elsa.Persistence.EFCore.Modules.Runtime;
 using Elsa.Resilience.Extensions;
 using PurchaseOrderApi.Activities.ApplicationActivities.MokhatabatActivities;
+using PurchaseOrderApi.Providers;
+using Elsa.Workflows;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +46,8 @@ builder.Services.AddScoped<PurchaseOrderService>();
 builder.Services.AddScoped<ApplicationService>();
 builder.Services.AddScoped<MokhatabatService>();
 builder.Services.AddScoped<WorkflowInboxService>();
+builder.Services.AddScoped<ApprovalRoleSelectListProvider>();
+builder.Services.AddScoped<WorkflowActionUIProvider>();
 
 // --- 3. ELSA SETUP ---
 builder.Services.AddElsa(elsa =>

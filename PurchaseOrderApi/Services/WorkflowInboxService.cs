@@ -1,9 +1,11 @@
 using Elsa.Workflows.Management;
 using Elsa.Workflows.Management.Filters;
 using Elsa.Workflows.Runtime;
+using Elsa.Workflows.Runtime.Entities;
 using Elsa.Workflows.Runtime.Filters;
 using Elsa.Workflows.Runtime.Parameters;
 using PurchaseOrderApi.Dtos;
+using PurchaseOrderApi.Enums;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -84,12 +86,38 @@ public sealed class WorkflowInboxService(
                 }
             }
 
+            JsonNode? actionsNode = activityState?["AllowedActions"];
+
+            ICollection<WorkflowAction> availableActions = new List<WorkflowAction>();
+
+            if (actionsNode is JsonArray actionsArray)
+            {
+                availableActions = actionsArray
+                    .Select(node =>
+                    {
+                        string? key = GetJsonString(node?["Key"]);
+                        return key is not null
+                            ? WorkflowActions.FindByKey(key) ?? new WorkflowAction
+                            {
+                                Key = key,
+                                Label = GetJsonString(node?["Label"]) ?? key,
+                                Style = GetJsonString(node?["Style"]) ?? "default",
+                                RequiresReason = node?["RequiresReason"]?.GetValue<bool>() ?? false
+                            }
+                            : null;
+                    })
+                    .Where(a => a is not null)
+                    .Select(a => a!)
+                    .ToList();
+            }
+
             results.Add(new InboxItemDto(
                 WorkflowInstanceId: bookmark.WorkflowInstanceId,
                 BookmarkId: bookmark.Id,
                 ApplicationId: appId,
                 StepName: stepName,
-                RequiredRole: requiredRole
+                RequiredRole: requiredRole,
+                AvailableActions: availableActions
             ));
         }
 
@@ -131,25 +159,34 @@ public sealed class WorkflowInboxService(
     /// <summary>
     /// Submits an approval decision for the specified bookmark and resumes the workflow.
     /// </summary>
-    public async Task SubmitDecisionAsync(string bookmarkId, string decision, string reason)
+    public async Task SubmitDecisionAsync(
+        string bookmarkId,
+        string action,
+        string? reason,
+        Dictionary<string, object>? extra = null)
     {
-        Elsa.Workflows.Runtime.Entities.StoredBookmark? bookmark = await bookmarkStore.FindAsync(
-            new BookmarkFilter { BookmarkId = bookmarkId },
-            CancellationToken.None);
+        StoredBookmark? bookmark = await bookmarkStore.FindAsync(
+            new BookmarkFilter { BookmarkId = bookmarkId }, CancellationToken.None);
 
         if (bookmark is null)
             throw new KeyNotFoundException($"Bookmark '{bookmarkId}' not found.");
+
+        Dictionary<string, object> payload = new()
+        {
+            ["action"] = action,
+            ["reason"] = reason ?? string.Empty
+        };
+
+        if (extra is not null)
+            foreach (KeyValuePair<string, object> kv in extra)
+                payload[kv.Key] = kv.Value;
 
         await workflowRuntime.ResumeWorkflowAsync(
             bookmark.WorkflowInstanceId,
             new ResumeWorkflowRuntimeParams
             {
                 BookmarkId = bookmark.Id,
-                Input = new Dictionary<string, object>
-                {
-                    ["decision"] = decision,
-                    ["reason"] = reason
-                }
+                Input = payload
             });
     }
 

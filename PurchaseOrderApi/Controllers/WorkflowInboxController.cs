@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using PurchaseOrderApi.Dtos;
+using PurchaseOrderApi.Enums;
 using PurchaseOrderApi.Services;
 
 namespace PurchaseOrderApi.Controllers;
@@ -32,20 +33,25 @@ public sealed class WorkflowInboxController(WorkflowInboxService inboxService) :
     [HttpPost("{bookmarkId}/submit")]
     public async Task<IActionResult> Submit(
         [FromRoute] string bookmarkId,
-        [FromBody] SubmitDecisionRequest request,
+        [FromBody] SubmitActionRequest request,
         [FromQuery] string role)
     {
-        List<InboxItemDto> all = await inboxService.GetPendingItemsAsync(string.Empty);
-        InboxItemDto? item = all.FirstOrDefault(x => x.BookmarkId == bookmarkId);
-        if (item is null)
-            return NotFound();
-
         bool isValid = await inboxService.ValidateRoleAsync(bookmarkId, role);
         if (!isValid)
             return StatusCode(403, new { error = "You do not have permission to action this task." });
 
-        await inboxService.SubmitDecisionAsync(bookmarkId, request.Decision, request.Reason);
-        return Ok();
+        if (!WorkflowActions.IsValid(request.Action))
+            return BadRequest(new { error = $"Unknown action '{request.Action}'." });
+
+        try
+        {
+            await inboxService.SubmitDecisionAsync(bookmarkId, request.Action, request.Reason, request.Extra);
+            return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(403, new { error = ex.Message });
+        }
     }
 }
 

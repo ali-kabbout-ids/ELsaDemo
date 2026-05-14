@@ -2,6 +2,7 @@
 using Elsa.Workflows.Attributes;
 using Elsa.Workflows.Models;
 using Elsa.Workflows.UIHints;
+using PurchaseOrderApi.Dtos;
 using PurchaseOrderApi.Enums;
 using PurchaseOrderApi.Models;
 using PurchaseOrderApi.Providers;
@@ -27,34 +28,29 @@ public class WaitForApplicationApprovalActivity : Activity
     public Input<int> ApplicationId { get; set; } = default!;
 
     [Input(
-        Description = "Status to set while this step is pending",
-        UIHint = InputUIHints.DropDown
+        Description = "Actions available to the assigned role for this step",
+        UIHint = InputUIHints.CheckList,
+        UIHandler = typeof(WorkflowActionUIProvider)
     )]
-    public Input<ApplicationStatus> PendingStatus { get; set; } = default!;
+    public Input<ICollection<string>> AllowedActionKeys { get; set; } = default!;
 
-    [Input(
-        Description = "Status to set after decision is saved",
-        UIHint = InputUIHints.DropDown
-    )]
-    public Input<ApplicationStatus> CompletedStatus { get; set; } = default!;
+    // ── Single clean output ───────────────────────────────────────────────────
+    [Output(Description = "The result of this approval step")]
+    public Output<ApprovalResult?>? Result { get; set; }
 
-    [Output] public Output<string>? Decision { get; set; }
-    [Output] public Output<string>? Reason { get; set; }
-
+    // ── Execute ──────────────────────────────────────────────────────────────
     protected override async ValueTask ExecuteAsync(ActivityExecutionContext ctx)
     {
         ApplicationService svc = ctx.GetRequiredService<ApplicationService>();
         int appId = ctx.Get(ApplicationId);
-        ApprovalRole requiredRole = ctx.Get(RequiredRole);
-        string? stepName = ctx.Get(StepName);
-        ApplicationStatus pendingStatus = ctx.Get(PendingStatus);
-        ApplicationRequest? app = await svc.GetByIdAsync(appId);
+        ApprovalRole role = ctx.Get(RequiredRole);
+        string? step = ctx.Get(StepName);
 
-        if (app != null)
+        ApplicationRequest? app = await svc.GetByIdAsync(appId);
+        if (app is not null)
         {
-            app.Status = pendingStatus;
-            app.CurrentRequiredRole = requiredRole.ToString();
-            app.CurrentStepName = stepName;
+            app.CurrentRequiredRole = role.ToString();
+            app.CurrentStepName = step;
             app.UpdatedAt = DateTime.UtcNow;
             await svc.SaveAsync(app);
         }
@@ -66,49 +62,69 @@ public class WaitForApplicationApprovalActivity : Activity
             AutoBurn = true
         });
 
-        Console.WriteLine($"[FLOW] ⏸  App #{appId} — '{stepName}' waiting for '{requiredRole}'");
+        Console.WriteLine($"[FLOW] ⏸  App #{appId} — '{step}' waiting for '{role}'");
     }
 
+    // ── Resume ───────────────────────────────────────────────────────────────
     private async ValueTask OnResumedAsync(ActivityExecutionContext ctx)
     {
         IDictionary<string, object> input = ctx.WorkflowInput;
-        string decision = GetStr(input, "decision") ?? "rejected";
+        string action = GetStr(input, "action") ?? "reject";
         string reason = GetStr(input, "reason") ?? string.Empty;
+
+        var selectedKeys = ctx.Get(AllowedActionKeys) ?? new List<string>();
+
+        // Resolve them to full WorkflowAction objects for your logic  
+        var allowedActions = selectedKeys
+            .Select(key => WorkflowActions.FindByKey(key))
+            .Where(a => a != null)
+            .ToList();
+
+        // Collect extra fields — all as string, safely serializable
+        Dictionary<string, string> extra = input
+            .Where(kv => kv.Key is not "action" and not "reason")
+            .ToDictionary(
+                kv => kv.Key,
+                kv => kv.Value?.ToString() ?? string.Empty);
+
+        ApprovalResult result = new()
+        {
+            Action = action,
+            Reason = reason,
+            Extra = extra
+        };
+
+        // Persist against role
         ApplicationService svc = ctx.GetRequiredService<ApplicationService>();
         int appId = ctx.Get(ApplicationId);
         ApprovalRole role = ctx.Get(RequiredRole);
-        ApplicationStatus completedStatus = ctx.Get(CompletedStatus);
-        ApplicationRequest? app = await svc.GetByIdAsync(appId);
 
-        if (app != null)
+        ApplicationRequest? app = await svc.GetByIdAsync(appId);
+        if (app is not null)
         {
-            // ── Save decision to the correct fields based on role ─────────
             switch (role)
             {
                 case ApprovalRole.I3lamKanouni:
-                    app.I3almKanouniDecision = decision;
+                    app.I3almKanouniDecision = action;
                     app.I3almKanouniReason = reason;
                     break;
                 case ApprovalRole.Mo3awenCho3ba:
-                    app.Mo3awenDecision = decision;
+                    app.Mo3awenDecision = action;
                     app.Mo3awenReason = reason;
                     break;
                 case ApprovalRole.FinalMo3awen:
-                    app.FinalMo3awenDecision = decision;
+                    app.FinalMo3awenDecision = action;
                     break;
             }
-
-            app.Status = completedStatus;
             app.CurrentRequiredRole = null;
             app.CurrentStepName = null;
             app.UpdatedAt = DateTime.UtcNow;
             await svc.SaveAsync(app);
         }
 
-        ctx.Set(Decision, decision);
-        ctx.Set(Reason, reason);
+        ctx.Set(Result, result);
 
-        Console.WriteLine($"[FLOW] ▶  App #{appId} — [{role}] '{decision}'. Status → {completedStatus}");
+        Console.WriteLine($"[FLOW] ▶  App #{appId} — [{role}] action='{action}'");
         await ctx.CompleteActivityAsync();
     }
 }

@@ -6,9 +6,14 @@ public sealed record InboxItemDto(
     string BookmarkId,
     int ApplicationId,
     string StepName,
-    string RequiredRole
+    string RequiredRole,
+    ICollection<WorkflowAction> AvailableActions
 );
 
-// Request body for submitting a decision
-public sealed record SubmitDecisionRequest(string Decision, string Reason);
+// Request body for submitting action
+public record SubmitActionRequest(
+    string Action,
+    string? Reason,
+    Dictionary<string, object>? Extra
+);
 

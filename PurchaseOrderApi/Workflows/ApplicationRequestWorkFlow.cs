@@ -15,6 +15,7 @@ using static PurchaseOrderApi.Helpers.DictionaryHelper;
 using Elsa.Http;
 using Elsa.Workflows.Runtime.Activities;
 using PurchaseOrderApi.Enums;
+using PurchaseOrderApi.Dtos;
 
 namespace PurchaseOrderApi.Workflows;
 
@@ -32,14 +33,25 @@ public class ApplicationRequestWorkFlow : WorkflowBase
     protected override void Build(IWorkflowBuilder builder)
     {
         Variable<int> appIdVar = builder.WithVariable<int>("ApplicationId", 0).WithWorkflowStorage();
-        Variable<bool> mo5atabatNeededVar = builder.WithVariable<bool>("Mo5atabatNeeded", false).WithWorkflowStorage();
-        Variable<string> i3almDecisionVar = builder.WithVariable<string>("I3almDecision", "").WithWorkflowStorage();
-        Variable<string> i3almReasonVar = builder.WithVariable<string>("I3almReason", "").WithWorkflowStorage();
-        Variable<string> mo3awenDecisionVar = builder.WithVariable<string>("Mo3awenDecision", "").WithWorkflowStorage();
-        Variable<string> mo3awenReasonVar = builder.WithVariable<string>("Mo3awenReason", "").WithWorkflowStorage();
         Variable<string> hasMane3DecisionVar = builder.WithVariable<string>("HasMane3Decision", "").WithWorkflowStorage();
         Variable<string> hasMane3ReasonVar = builder.WithVariable<string>("HasMane3Reason", "").WithWorkflowStorage();
         Variable<object?> hasMane3ResponseVar = builder.WithVariable<object?>("HasMane3Response").WithWorkflowStorage();
+
+        Variable<ApprovalResult?> i3lamResultVar = builder
+            .WithVariable<ApprovalResult?>("I3almResult", null)
+            .WithWorkflowStorage();
+
+        Variable<ApprovalResult?> mo3awenResultVar = builder
+            .WithVariable<ApprovalResult?>("Mo3awenResult", null)
+            .WithWorkflowStorage();
+
+        Variable<ApprovalResult?> finalMo3awenResultVar = builder
+            .WithVariable<ApprovalResult?>("FinalMo3awenResult", null)
+            .WithWorkflowStorage();
+
+        Variable<bool> mo5atabatNeededVar = builder
+            .WithVariable<bool>("Mo5atabatNeeded", false)
+            .WithWorkflowStorage();
 
         // ── STEP 0 ───────────────────────────────────────────────────────────
         SetVariable<int> setAppId = new SetVariable<int>
@@ -64,34 +76,36 @@ public class ApplicationRequestWorkFlow : WorkflowBase
         WaitForApplicationApprovalActivity waitI3lam = new WaitForApplicationApprovalActivity
         {
             Id = "WaitI3lamKanouni",
-            Name = "I3lam Kanouni Review",
             ApplicationId = new Input<int>(appIdVar),
             RequiredRole = new Input<ApprovalRole>(ApprovalRole.I3lamKanouni),
             StepName = new Input<string>("I3lam Kanouni Review"),
-            PendingStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingI3almKanouniReview),
-            CompletedStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingMo3awenReview),
-            Decision = new Output<string>(i3almDecisionVar),
-            Reason = new Output<string>(i3almReasonVar)
+            AllowedActionKeys = new Input<ICollection<string>>(new[]
+    {
+        WorkflowActions.Approve.Key,
+        WorkflowActions.Reject.Key
+    }),
+            Result = new Output<ApprovalResult?>(i3lamResultVar)
         }.WithLayout(x: 530, y: 100, w: 310, h: 68, displayText: "I3alm Kanouni Review");
 
         // ── STEP 2 ───────────────────────────────────────────────────────────
         WaitForApplicationApprovalActivity waitMo3awen = new WaitForApplicationApprovalActivity
         {
             Id = "WaitMo3awenCho3ba",
-            Name = "Mo3awen Cho3ba Review",
             ApplicationId = new Input<int>(appIdVar),
             RequiredRole = new Input<ApprovalRole>(ApprovalRole.Mo3awenCho3ba),
             StepName = new Input<string>("Mo3awen Cho3ba Review"),
-            PendingStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingMo3awenReview),
-            CompletedStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingMo3awenReview),
-            Decision = new Output<string>(mo3awenDecisionVar),
-            Reason = new Output<string>(mo3awenReasonVar)
+            AllowedActionKeys = new Input<ICollection<string>>(new[]
+    {
+        WorkflowActions.Approve.Key,
+        WorkflowActions.Reject.Key
+    }),
+            Result = new Output<ApprovalResult?>(mo3awenResultVar)
         }.WithLayout(x: 910, y: 100, w: 342, h: 68, displayText: "Mo3awen Cho3ba Review");
 
         // ── STEP 3 ── Both approved? ──────────────────────────────────────────
         FlowDecision conditionBothApproved = new FlowDecision(ctx =>
-            i3almDecisionVar.Get(ctx) == "approved" &&
-            mo3awenDecisionVar.Get(ctx) == "approved")
+            (i3lamResultVar.Get(ctx)?.IsApproved ?? false) &&
+            (mo3awenResultVar.Get(ctx)?.IsApproved ?? false))
         {
             Id = "ConditionBothApproved",
             Name = "Both Approved?"
@@ -108,7 +122,7 @@ public class ApplicationRequestWorkFlow : WorkflowBase
         {
             Id = "CheckMo5atabat",
             Name = "Requires Mokhatabat?",
-            Condition = new Input<bool>(ctx => mo5atabatNeededVar.Get(ctx))
+            Condition = new Input<bool>(ctx => mo3awenResultVar.Get(ctx)?.GetBool("requiresMo5atabat") ?? false)
         }.WithLayout(x: 1040, y: 320, w: 248, h: 68, displayText: "Requires Mokhatabat?");
 
         // ── STEP 4b ──────────────────────────────────────────────────────────
@@ -118,8 +132,8 @@ public class ApplicationRequestWorkFlow : WorkflowBase
             Name = "SubWorkflow Mokhatabat",
             WorkflowDefinitionId = new Input<string>(_ => MokhatabatWorkflow.DefinitionId),
             WaitForCompletion = new Input<bool>(_ => true),
-            CorrelationId = new Input<string>(ctx => $"mo5-{appIdVar.Get(ctx)}"),
-            Input = new Input<IDictionary<string, object>>(ctx =>
+            CorrelationId = new Input<string?>(ctx => $"mo5-{appIdVar.Get(ctx)}"),
+            Input = new Input<IDictionary<string, object>?>(ctx =>
                 new Dictionary<string, object> { ["applicationId"] = appIdVar.Get(ctx) })
         }.WithLayout(x: 1040, y: 531, w: 310, h: 68, displayText: "Run Mokhatabat Sub-Workflow");
 
@@ -127,14 +141,15 @@ public class ApplicationRequestWorkFlow : WorkflowBase
         WaitForApplicationApprovalActivity waitFinalMo3awen = new WaitForApplicationApprovalActivity
         {
             Id = "WaitFinalMo3awen",
-            Name = "Final Mo3awen Sign-off",
             ApplicationId = new Input<int>(appIdVar),
-            RequiredRole = new Input<ApprovalRole>(ApprovalRole.Mo3awenCho3ba), 
+            RequiredRole = new Input<ApprovalRole>(ApprovalRole.Mo3awenCho3ba),
             StepName = new Input<string>("Final Mo3awen Sign-off"),
-            PendingStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingFinalMo3awenReview),
-            CompletedStatus = new Input<ApplicationStatus>(ApplicationStatus.PendingHasMane3Check),
-            Decision = new Output<string>(builder.WithVariable<string>()),
-            Reason = new Output<string>(builder.WithVariable<string>())
+            AllowedActionKeys = new Input<ICollection<string>>(new[]
+    {
+        WorkflowActions.Approve.Key,
+        WorkflowActions.Reject.Key
+    }),
+            Result = new Output<ApprovalResult?>(finalMo3awenResultVar)
         }.WithLayout(x: 1400, y: 531, w: 316, h: 68, displayText: "Final Mo3awen Sign-off");
 
         // ── STEP 6 — mark app as pending before the HTTP call ────────────────
@@ -149,7 +164,7 @@ public class ApplicationRequestWorkFlow : WorkflowBase
         {
             Id = "HasMane3HttpCall",
             Name = "Call Has Mane3 Check",
-            Url = new Input<Uri>(ctx =>
+            Url = new Input<Uri?>(ctx =>
                 new Uri($"{ApiBaseUrl}/api/applications/{appIdVar.Get(ctx)}/has-mane3")),
             Method = new Input<string>(_ => HttpMethods.Get),
             ParsedContent = new Output<object?>(hasMane3ResponseVar)
