@@ -47,7 +47,7 @@ builder.Services.AddScoped<ApplicationService>();
 builder.Services.AddScoped<MokhatabatService>();
 builder.Services.AddScoped<WorkflowInboxService>();
 builder.Services.AddScoped<ApprovalRoleSelectListProvider>();
-builder.Services.AddScoped<WorkflowActionUIProvider>();
+builder.Services.AddScoped<IPropertyUIHandler, WorkflowActionUIProvider>();
 
 // --- 3. ELSA SETUP ---
 builder.Services.AddElsa(elsa =>

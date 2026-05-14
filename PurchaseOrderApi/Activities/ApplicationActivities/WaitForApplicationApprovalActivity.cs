@@ -32,7 +32,7 @@ public class WaitForApplicationApprovalActivity : Activity
         UIHint = InputUIHints.CheckList,
         UIHandler = typeof(WorkflowActionUIProvider)
     )]
-    public Input<ICollection<string>> AllowedActionKeys { get; set; } = default!;
+    public Input<string[]> AllowedActionKeys { get; set; } = default!;
 
     // ── Single clean output ───────────────────────────────────────────────────
     [Output(Description = "The result of this approval step")]
@@ -72,7 +72,7 @@ public class WaitForApplicationApprovalActivity : Activity
         string action = GetStr(input, "action") ?? "reject";
         string reason = GetStr(input, "reason") ?? string.Empty;
 
-        var selectedKeys = ctx.Get(AllowedActionKeys) ?? new List<string>();
+        var selectedKeys = ctx.Get(AllowedActionKeys) ?? [];
 
         // Resolve them to full WorkflowAction objects for your logic  
         var allowedActions = selectedKeys

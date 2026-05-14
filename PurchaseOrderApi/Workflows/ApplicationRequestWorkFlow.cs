@@ -79,11 +79,8 @@ public class ApplicationRequestWorkFlow : WorkflowBase
             ApplicationId = new Input<int>(appIdVar),
             RequiredRole = new Input<ApprovalRole>(ApprovalRole.I3lamKanouni),
             StepName = new Input<string>("I3lam Kanouni Review"),
-            AllowedActionKeys = new Input<ICollection<string>>(new[]
-    {
-        WorkflowActions.Approve.Key,
-        WorkflowActions.Reject.Key
-    }),
+            AllowedActionKeys = new Input<string[]>(new[] { "approve", "reject" }),
+
             Result = new Output<ApprovalResult?>(i3lamResultVar)
         }.WithLayout(x: 530, y: 100, w: 310, h: 68, displayText: "I3alm Kanouni Review");
 
@@ -94,11 +91,8 @@ public class ApplicationRequestWorkFlow : WorkflowBase
             ApplicationId = new Input<int>(appIdVar),
             RequiredRole = new Input<ApprovalRole>(ApprovalRole.Mo3awenCho3ba),
             StepName = new Input<string>("Mo3awen Cho3ba Review"),
-            AllowedActionKeys = new Input<ICollection<string>>(new[]
-    {
-        WorkflowActions.Approve.Key,
-        WorkflowActions.Reject.Key
-    }),
+            AllowedActionKeys = new Input<string[]>(new[] { "approve", "reject" }),
+
             Result = new Output<ApprovalResult?>(mo3awenResultVar)
         }.WithLayout(x: 910, y: 100, w: 342, h: 68, displayText: "Mo3awen Cho3ba Review");
 
@@ -144,11 +138,8 @@ public class ApplicationRequestWorkFlow : WorkflowBase
             ApplicationId = new Input<int>(appIdVar),
             RequiredRole = new Input<ApprovalRole>(ApprovalRole.Mo3awenCho3ba),
             StepName = new Input<string>("Final Mo3awen Sign-off"),
-            AllowedActionKeys = new Input<ICollection<string>>(new[]
-    {
-        WorkflowActions.Approve.Key,
-        WorkflowActions.Reject.Key
-    }),
+            AllowedActionKeys = new Input<string[]>(new[] { "approve", "reject" }),
+
             Result = new Output<ApprovalResult?>(finalMo3awenResultVar)
         }.WithLayout(x: 1400, y: 531, w: 316, h: 68, displayText: "Final Mo3awen Sign-off");
 
