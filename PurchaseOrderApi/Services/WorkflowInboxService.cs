@@ -86,29 +86,32 @@ public sealed class WorkflowInboxService(
                 }
             }
 
-            JsonNode? actionsNode = activityState?["AllowedActions"];
-
+            JsonNode? actionsNode = activityState?["AllowedActionKeys"];
             ICollection<WorkflowAction> availableActions = new List<WorkflowAction>();
 
             if (actionsNode is JsonArray actionsArray)
             {
                 availableActions = actionsArray
-                    .Select(node =>
-                    {
-                        string? key = GetJsonString(node?["Key"]);
-                        return key is not null
-                            ? WorkflowActions.FindByKey(key) ?? new WorkflowAction
-                            {
-                                Key = key,
-                                Label = GetJsonString(node?["Label"]) ?? key,
-                                Style = GetJsonString(node?["Style"]) ?? "default",
-                                RequiresReason = node?["RequiresReason"]?.GetValue<bool>() ?? false
-                            }
-                            : null;
-                    })
+                    .Select(node => GetJsonString(node))         
+                    .Where(key => !string.IsNullOrWhiteSpace(key))
+                    .Select(key => WorkflowActions.FindByKey(key!))
                     .Where(a => a is not null)
                     .Select(a => a!)
                     .ToList();
+            }
+            else if (actionsNode is JsonValue jsonValue)
+            {
+                // Fallback: stored as comma-separated string
+                string? raw = GetJsonString(jsonValue);
+                if (!string.IsNullOrWhiteSpace(raw))
+                {
+                    availableActions = raw
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Select(key => WorkflowActions.FindByKey(key))
+                        .Where(a => a is not null)
+                        .Select(a => a!)
+                        .ToList();
+                }
             }
 
             results.Add(new InboxItemDto(
