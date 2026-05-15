@@ -34,7 +34,13 @@ public class WaitForApplicationApprovalActivity : Activity
     )]
     public Input<string[]> AllowedActionKeys { get; set; } = default!;
 
-    // ── Single clean output ───────────────────────────────────────────────────
+    [Input(
+    Description = "Sections visible to the user when reviewing this step",
+    UIHint = InputUIHints.CheckList,
+    UIHandler = typeof(SectionUIProvider)
+    )]
+    public Input<string[]> VisibleSections { get; set; } = default!;
+
     [Output(Description = "The result of this approval step")]
     public Output<ApprovalResult?>? Result { get; set; }
 

@@ -7,7 +7,8 @@ public sealed record InboxItemDto(
     int ApplicationId,
     string StepName,
     string RequiredRole,
-    ICollection<WorkflowAction> AvailableActions
+    ICollection<WorkflowAction> AvailableActions,
+    ICollection<WorkflowSection> AvailableSections
 );
 
 // Request body for submitting action

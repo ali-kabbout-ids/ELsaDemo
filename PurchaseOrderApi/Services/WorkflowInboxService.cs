@@ -114,13 +114,41 @@ public sealed class WorkflowInboxService(
                 }
             }
 
+            JsonNode? sectionsNode = activityState?["VisibleSections"];
+            ICollection<WorkflowSection> availableSections = new List<WorkflowSection>();
+
+            if (sectionsNode is JsonArray sectionsArray)
+            {
+                availableSections = sectionsArray
+                    .Select(node => GetJsonString(node))
+                    .Where(key => !string.IsNullOrWhiteSpace(key))
+                    .Select(key => WorkflowSections.FindByKey(key!))
+                    .Where(s => s is not null)
+                    .Select(s => s!)
+                    .ToList();
+            }
+            else if (sectionsNode is JsonValue sectionValue)
+            {
+                string? raw = GetJsonString(sectionValue);
+                if (!string.IsNullOrWhiteSpace(raw))
+                {
+                    availableSections = raw
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Select(key => WorkflowSections.FindByKey(key))
+                        .Where(s => s is not null)
+                        .Select(s => s!)
+                        .ToList();
+                }
+            }
+
             results.Add(new InboxItemDto(
                 WorkflowInstanceId: bookmark.WorkflowInstanceId,
                 BookmarkId: bookmark.Id,
                 ApplicationId: appId,
                 StepName: stepName,
                 RequiredRole: requiredRole,
-                AvailableActions: availableActions
+                AvailableActions: availableActions,
+                AvailableSections: availableSections
             ));
         }
 
