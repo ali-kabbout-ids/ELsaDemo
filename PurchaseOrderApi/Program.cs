@@ -12,6 +12,7 @@ using Elsa.Resilience.Extensions;
 using PurchaseOrderApi.Activities.ApplicationActivities.MokhatabatActivities;
 using PurchaseOrderApi.Providers;
 using Elsa.Workflows;
+using PurchaseOrderApi.Dtos;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -72,9 +73,13 @@ builder.Services.AddElsa(elsa =>
         };
     });
 
+    elsa.AddVariableTypeAndAlias<ApprovalResult>("ApprovalResult", "Application");
+
     elsa.UseWorkflowsApi();
     elsa.UseFlowchart();
     elsa.UseResilience();
+
+     elsa.UseJavaScript();
 
     // Activities
     elsa.AddActivity<ValidateOrderActivity>();

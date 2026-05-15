@@ -16,6 +16,8 @@ using Elsa.Http;
 using Elsa.Workflows.Runtime.Activities;
 using PurchaseOrderApi.Enums;
 using PurchaseOrderApi.Dtos;
+using Elsa.Expressions.Models;
+using Elsa.Expressions.JavaScript.Models;
 
 namespace PurchaseOrderApi.Workflows;
 
@@ -94,12 +96,12 @@ public class ApplicationRequestWorkFlow : WorkflowBase
         }.WithLayout(x: 910, y: 100, w: 342, h: 68, displayText: "Mo3awen Cho3ba Review");
 
         // ── STEP 3 ── Both approved? ──────────────────────────────────────────
-        FlowDecision conditionBothApproved = new FlowDecision(ctx =>
-            (i3lamResultVar.Get(ctx)?.IsApproved ?? false) &&
-            (mo3awenResultVar.Get(ctx)?.IsApproved ?? false))
+        FlowDecision conditionBothApproved = new FlowDecision
         {
             Id = "ConditionBothApproved",
-            Name = "Both Approved?"
+            Name = "Both Approved?",
+            Condition = new Input<bool>(JavaScriptExpression.Create(
+                "variables.I3almResult?.Action == 'approve' && variables.Mo3awenResult?.Action == 'approveWithMo5atabat'"))
         }.WithLayout(x: 690, y: 220, w: 201, h: 68, displayText: "Both Approved?");
 
         IncrementReviewRoundActivity incrementRound = new IncrementReviewRoundActivity
@@ -113,7 +115,8 @@ public class ApplicationRequestWorkFlow : WorkflowBase
         {
             Id = "CheckMo5atabat",
             Name = "Requires Mokhatabat?",
-            Condition = new Input<bool>(ctx => mo3awenResultVar.Get(ctx)?.GetBool("requiresMo5atabat") ?? false)
+            Condition = new Input<bool>(JavaScriptExpression.Create(
+                "variables.Mo3awenResult?.Extra?.['requiresMo5atabat'] === 'true'"))
         }.WithLayout(x: 1040, y: 320, w: 248, h: 68, displayText: "Requires Mokhatabat?");
 
         // ── STEP 4b ──────────────────────────────────────────────────────────

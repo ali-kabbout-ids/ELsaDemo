@@ -11,6 +11,7 @@ using Elsa.Workflows;
 using Elsa.Workflows.Runtime.Requests;
 using PurchaseOrderApi.Models;
 using PurchaseOrderApi.Activities.ApplicationActivities.MokhatabatActivities;
+using Elsa.Common.Models;
 
 [ApiController]
 [Route("api/applications")]
@@ -39,7 +40,7 @@ public class ApplicationsController(
         RunWorkflowInstanceResponse result = await client.CreateAndRunInstanceAsync(new CreateAndRunWorkflowInstanceRequest
         {
             WorkflowDefinitionHandle = WorkflowDefinitionHandle.ByDefinitionId(
-                ApplicationRequestWorkFlow.DefinitionId),
+                ApplicationRequestWorkFlow.DefinitionId, VersionOptions.Published),
             CorrelationId = app.Id.ToString(), 
             Input = new Dictionary<string, object>
             {
