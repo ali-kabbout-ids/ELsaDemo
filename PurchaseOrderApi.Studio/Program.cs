@@ -12,6 +12,13 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.AspNetCore.Components.Authorization;
 using PurchaseOrderApi.Studio.Providers;
 using Elsa.Studio.Login.Services;
+using Elsa.Studio.Labels;
+using Elsa.Studio.Workflows.Components.WorkflowDefinitionEditor;
+using Elsa.Studio.Labels.Contracts;
+using Elsa.Studio.WorkflowContexts.Services;
+using Elsa.Studio.WorkflowContexts.Widgets;
+using Elsa.Studio.WorkflowContexts.Extensions;
+using PurchaseOrderApi.Studio.CustomWidgets;
 
 // Build the host.
 WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -36,6 +43,11 @@ builder.Services.AddDashboardModule();
 builder.Services.AddWorkflowsModule();
 builder.Services.AddScoped<AuthenticationStateProvider, AuthStateProvider>();
 builder.Services.AddAuthorizationCore();
+//builder.Services.AddLabelsModule(backendApiConfig);
+builder.Services.AddWorkflowContextsModule();
+//builder.Services.AddScoped<IWorkflowDefinitionLabelsProvider, RemoteWorkflowDefinitionLabelsProvider>();
+//builder.Services.AddScoped<IWidget, WorkflowDefinitionLabelsEditorWidget>();
+builder.Services.AddScoped<IWidget, TransactionTypeEditorWidget>();
 
 // Build the application.
 var app = builder.Build();

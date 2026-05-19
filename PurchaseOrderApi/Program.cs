@@ -13,6 +13,7 @@ using PurchaseOrderApi.Activities.ApplicationActivities.MokhatabatActivities;
 using PurchaseOrderApi.Providers;
 using Elsa.Workflows;
 using PurchaseOrderApi.Dtos;
+using Elsa.Persistence.EFCore.Modules.Labels;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -50,15 +51,31 @@ builder.Services.AddScoped<WorkflowInboxService>();
 builder.Services.AddScoped<ApprovalRoleSelectListProvider>();
 builder.Services.AddScoped<IPropertyUIHandler, WorkflowActionUIProvider>();
 builder.Services.AddScoped<IPropertyUIHandler, SectionUIProvider>();
+builder.Services.AddScoped<WorkflowService>();
+
+//builder.Services.AddScoped<ITransactionWorkflowResolver, TransactionWorkflowResolver>();
+//builder.Services.AddHostedService<WorkflowTransactionTypeSeeder>();
 
 // --- 3. ELSA SETUP ---
 builder.Services.AddElsa(elsa =>
 {
-    elsa.UseWorkflowManagement(m => m.UseEntityFrameworkCore(ef =>
+    //elsa.UseLabels();
+    //elsa.UseLabels(labels => labels.UseEntityFrameworkCore(ef =>
+    //{
+    //    ef.DbContextOptionsBuilder = (_, opts) => opts
+    //        .UseSqlServer(connStr, sql =>
+    //            sql.MigrationsAssembly("Elsa.Persistence.EFCore.SqlServer"))
+    //        .ReplaceService<IMigrationsAssembly, DbSchemaAwareMigrationAssembly>();
+    //}));
+
+    elsa.UseWorkflowManagement(m =>
     {
-        ef.UseSqlServer(connStr);
-        ef.RunMigrations = builder.Environment.IsDevelopment();
-    }));
+        m.UseEntityFrameworkCore(ef =>
+        {
+            ef.UseSqlServer(connStr);
+            ef.RunMigrations = builder.Environment.IsDevelopment();
+        });
+    });
 
     elsa.UseWorkflowRuntime(r => r.UseEntityFrameworkCore(ef =>
     {
@@ -79,7 +96,7 @@ builder.Services.AddElsa(elsa =>
     elsa.UseWorkflowsApi();
     elsa.UseFlowchart();
     elsa.UseResilience();
-
+    elsa.UseLabels();
      elsa.UseJavaScript();
 
     // Activities
@@ -131,8 +148,29 @@ if (builder.Environment.IsProduction())
 if (app.Environment.IsDevelopment())
 {
     await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
-    AppDbContext appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await appDb.Database.MigrateAsync();
+
+    await scope.ServiceProvider.GetRequiredService<AppDbContext>()
+        .Database.MigrateAsync();
+
+    //// Migrate LabelsElsaDbContext before seeding  
+    //var labelsDbFactory = scope.ServiceProvider
+    //    .GetRequiredService<IDbContextFactory<LabelsElsaDbContext>>();
+    //await using var labelsDb = await labelsDbFactory.CreateDbContextAsync();
+    //await labelsDb.Database.MigrateAsync();
+
+    //// Now seed safely  
+    //var labelStore = scope.ServiceProvider.GetRequiredService<ILabelStore>();
+    //var existing = (await labelStore.ListAsync()).Items.Select(l => l.Name).ToHashSet();
+    //foreach (var txType in TransactionTypes.All)
+    //{
+    //    if (!existing.Contains(txType))
+    //        await labelStore.SaveAsync(new Label
+    //        {
+    //            Id = Guid.NewGuid().ToString(),
+    //            Name = txType,
+    //            Description = $"Workflows that handle {txType} transactions"
+    //        });
+    //}
 }
 
 app.MapControllers();

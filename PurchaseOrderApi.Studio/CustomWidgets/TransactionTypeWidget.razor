@@ -1,0 +1,22 @@
+﻿@using Elsa.Api.Client.Resources.WorkflowDefinitions.Models  
+@using MudBlazor
+  
+<MudText Typo="Typo.overline">Transaction Type</MudText>  
+<MudPaper Class="pa-2">
+    <MudSelect T="string"
+               Value="_selectedType"
+               ValueChanged="OnTypeChangedAsync"
+               Label="Transaction Type"
+               Variant="Variant.Outlined"
+               Clearable="true"
+               Disabled="_saving"
+               HelperText="@(_saving ? "Saving…" : string.Empty)">
+
+        @foreach (var type in TransactionTypes.All)
+        {
+            <MudSelectItem Value="@type">
+                @type.Replace("_", " ")
+            </MudSelectItem>
+        }
+    </MudSelect>
+</MudPaper>

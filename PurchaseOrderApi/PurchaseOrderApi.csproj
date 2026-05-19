@@ -10,6 +10,7 @@
     <PackageReference Include="Elsa" Version="3.6.1" />
     <PackageReference Include="Elsa.EntityFrameworkCore.SqlServer" Version="3.5.3" />
     <PackageReference Include="Elsa.Http" Version="3.6.1" />
+    <PackageReference Include="Elsa.Labels" Version="3.6.1" />
     <PackageReference Include="Elsa.Persistence.EFCore.SqlServer" Version="3.6.1" />
     <PackageReference Include="Elsa.Resilience" Version="3.6.1" />
     <!-- REST API endpoints — required for Elsa Studio to connect -->
