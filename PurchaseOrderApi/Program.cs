@@ -14,6 +14,7 @@ using PurchaseOrderApi.Providers;
 using Elsa.Workflows;
 using PurchaseOrderApi.Dtos;
 using Elsa.Persistence.EFCore.Modules.Labels;
+ using Elsa.Identity.Contracts;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -51,7 +52,15 @@ builder.Services.AddScoped<WorkflowInboxService>();
 builder.Services.AddScoped<ApprovalRoleSelectListProvider>();
 builder.Services.AddScoped<IPropertyUIHandler, WorkflowActionUIProvider>();
 builder.Services.AddScoped<IPropertyUIHandler, SectionUIProvider>();
+builder.Services.AddHttpClient("platzi");
 builder.Services.AddScoped<WorkflowService>();
+
+var signingKey = builder.Configuration["Identity:Tokens:SigningKey"];
+
+if (string.IsNullOrWhiteSpace(signingKey) || signingKey.Length < 32)
+{
+    throw new InvalidOperationException("Security Error: The Identity:Tokens:SigningKey must be configured in appsettings.json and be at least 32 characters long.");
+}
 
 //builder.Services.AddScoped<ITransactionWorkflowResolver, TransactionWorkflowResolver>();
 //builder.Services.AddHostedService<WorkflowTransactionTypeSeeder>();
@@ -96,6 +105,25 @@ builder.Services.AddElsa(elsa =>
     elsa.UseWorkflowsApi();
     elsa.UseFlowchart();
     elsa.UseResilience();
+
+    var identitySection = builder.Configuration.GetSection("Identity");
+    var tokenSection = identitySection.GetSection("Tokens");
+
+    elsa.UseIdentity(identity =>
+    {
+        identity.TokenOptions = opts =>
+        {
+            tokenSection.Bind(opts);
+            opts.Issuer = elsaHttpBaseUrl;
+            opts.Audience = elsaHttpBaseUrl;
+        };
+
+        identity.UseConfigurationBasedRoleProvider(options =>
+        {
+            identitySection.Bind(options);
+        });
+    });
+    elsa.UseDefaultAuthentication();
     elsa.UseLabels();
      elsa.UseJavaScript();
 
@@ -116,16 +144,22 @@ builder.Services.AddElsa(elsa =>
     elsa.AddWorkflow<MokhatabatWorkflow>();
 });
 
-if (builder.Environment.IsDevelopment())
-{
-    EndpointSecurityOptions.DisableSecurity();
-}
+builder.Services.AddScoped<IUserCredentialsValidator, PlatziUserCredentialsValidator>();
+
+
+//if (builder.Environment.IsDevelopment())
+//{
+//    EndpointSecurityOptions.DisableSecurity();
+//}
 
 WebApplication app = builder.Build();
 
 
 app.UseRouting();
 app.UseCors("AllowAll");
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseWorkflows();
 
@@ -138,11 +172,7 @@ app.UseSwaggerUI(c =>
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Purchase Order API v1");
 });
 
-if (builder.Environment.IsProduction())
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-}
+
 
 // Database Auto-Migration
 if (app.Environment.IsDevelopment())

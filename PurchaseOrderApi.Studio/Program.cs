@@ -1,4 +1,4 @@
-using Elsa.Studio.Dashboard.Extensions;
+﻿using Elsa.Studio.Dashboard.Extensions;
 using Elsa.Studio.Shell;
 using Elsa.Studio.Shell.Extensions;
 using Elsa.Studio.Workflows.Extensions;
@@ -19,6 +19,9 @@ using Elsa.Studio.WorkflowContexts.Services;
 using Elsa.Studio.WorkflowContexts.Widgets;
 using Elsa.Studio.WorkflowContexts.Extensions;
 using PurchaseOrderApi.Studio.CustomWidgets;
+using Elsa.Studio.Login.BlazorWasm.Extensions;
+using Elsa.Studio.Login.Extensions;
+using Elsa.Studio.Login.HttpMessageHandlers;
 
 // Build the host.
 WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -32,16 +35,18 @@ builder.RootComponents.RegisterCustomElsaStudioElements();
 // Register shell services and modules.
 BackendApiConfig backendApiConfig = new BackendApiConfig
 {
-    ConfigureBackendOptions = options => builder.Configuration.GetSection("Backend").Bind(options)
+    ConfigureBackendOptions = options => builder.Configuration.GetSection("Backend").Bind(options),
+    ConfigureHttpClientBuilder = options => options.AuthenticationHandler = typeof(AuthenticatingApiHttpMessageHandler)
 };
 
 builder.Services.AddCore();
 builder.Services.AddShell();
+builder.Services.UseElsaIdentity();
+builder.Services.AddLoginModule();    
 builder.Services.AddSingleton<IAuthenticationProviderManager, DefaultAuthenticationProviderManager>();
 builder.Services.AddRemoteBackend(backendApiConfig);
 builder.Services.AddDashboardModule();
 builder.Services.AddWorkflowsModule();
-builder.Services.AddScoped<AuthenticationStateProvider, AuthStateProvider>();
 builder.Services.AddAuthorizationCore();
 //builder.Services.AddLabelsModule(backendApiConfig);
 builder.Services.AddWorkflowContextsModule();
