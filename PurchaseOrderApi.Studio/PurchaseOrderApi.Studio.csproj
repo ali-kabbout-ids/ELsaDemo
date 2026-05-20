@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -20,5 +20,6 @@
     <PackageReference Include="Elsa.Studio.Workflows" Version="3.6.1" />
     <PackageReference Include="Elsa.Studio.Workflows.Designer" Version="3.6.1" />
     <PackageReference Include="Elsa.Studio.Core.BlazorWasm" Version="3.6.1" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.5.0" />
   </ItemGroup>
 </Project>
