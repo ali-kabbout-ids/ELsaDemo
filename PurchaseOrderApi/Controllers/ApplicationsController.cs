@@ -6,12 +6,11 @@ using Microsoft.AspNetCore.Mvc;
 using PurchaseOrderApi.Activities;
 using PurchaseOrderApi.Dtos;
 using PurchaseOrderApi.Services;
-using PurchaseOrderApi.Workflows;
 using Elsa.Workflows;
 using Elsa.Workflows.Runtime.Requests;
 using PurchaseOrderApi.Models;
 using PurchaseOrderApi.Activities.ApplicationActivities.MokhatabatActivities;
-using Elsa.Common.Models;
+using Elsa.Workflows.Management.Entities;
 
 [ApiController]
 [Route("api/applications")]
@@ -19,6 +18,7 @@ public class ApplicationsController(
     ApplicationService svc,
     MokhatabatService mokhatabatService,
     IWorkflowRuntime workflowRuntime,
+    WorkflowService workflowService,
     IWorkflowDispatcher workflowDispatcher) : ControllerBase
 {
     [HttpGet]
@@ -35,22 +35,31 @@ public class ApplicationsController(
     public async Task<IActionResult> Start([FromBody] StartApplicationRequest req)
     {
         ApplicationRequest app = await svc.CreateAsync(req);
-        IWorkflowClient client = await workflowRuntime.CreateClientAsync();
+        IEnumerable<WorkflowDefinition> definitions = await workflowService.FindAllDefinitionsByType(req.TransactionType);
 
-        RunWorkflowInstanceResponse result = await client.CreateAndRunInstanceAsync(new CreateAndRunWorkflowInstanceRequest
+        List<string> instanceIds = new List<string>();
+
+        foreach (WorkflowDefinition definition in definitions)
         {
-            WorkflowDefinitionHandle = WorkflowDefinitionHandle.ByDefinitionId(
-                ApplicationRequestWorkFlow.DefinitionId, VersionOptions.Published),
-            CorrelationId = app.Id.ToString(), 
-            Input = new Dictionary<string, object>
-            {
-                ["applicationId"] = app.Id,
-                ["requiresMo5atabat"] = req.RequiresMo5atabat
-            }
-        });
+            IWorkflowClient client = await workflowRuntime.CreateClientAsync();
 
-        app.WorkflowInstanceId = result.WorkflowInstanceId;
+            RunWorkflowInstanceResponse result = await client.CreateAndRunInstanceAsync(new CreateAndRunWorkflowInstanceRequest
+            {
+                WorkflowDefinitionHandle = WorkflowDefinitionHandle.ByDefinitionVersionId(definition.Id),
+                CorrelationId = app.Id.ToString(),
+                Input = new Dictionary<string, object>
+                {
+                    ["applicationId"] = app.Id,
+                    ["requiresMo5atabat"] = req.RequiresMo5atabat
+                }
+            });
+
+            instanceIds.Add(result.WorkflowInstanceId);
+        }
+
+        app.WorkflowInstanceId = string.Join(",", instanceIds);
         await svc.SaveAsync(app);
+
         return CreatedAtAction(nameof(GetById), new { id = app.Id }, app);
     }
 
@@ -59,7 +68,7 @@ public class ApplicationsController(
     [HttpPost("{id:int}/decide")]
     public async Task<IActionResult> Decide(int id, [FromBody] ReviewDecisionRequest req)
     {
-        var app = await svc.GetByIdAsync(id);
+        ApplicationRequest? app = await svc.GetByIdAsync(id);
         if (app is null)
             return NotFound($"Application #{id} not found.");
 
@@ -99,7 +108,7 @@ public class ApplicationsController(
         [FromQuery] string decision = "no_obstacle",
         [FromQuery] string reason = "")
     {
-        var app = await svc.GetByIdAsync(id);
+        ApplicationRequest? app = await svc.GetByIdAsync(id);
         if (app is null) return NotFound($"Application #{id} not found.");
 
         return Ok(new

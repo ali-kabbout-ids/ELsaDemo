@@ -13,6 +13,7 @@ using PurchaseOrderApi.Activities.ApplicationActivities.MokhatabatActivities;
 using PurchaseOrderApi.Providers;
 using Elsa.Workflows;
 using PurchaseOrderApi.Dtos;
+using Elsa.Persistence.EFCore.Modules.Labels;
 using Elsa.Identity.Contracts;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -52,6 +53,7 @@ builder.Services.AddScoped<ApprovalRoleSelectListProvider>();
 builder.Services.AddScoped<IPropertyUIHandler, WorkflowActionUIProvider>();
 builder.Services.AddScoped<IPropertyUIHandler, SectionUIProvider>();
 builder.Services.AddHttpClient("platzi");
+builder.Services.AddScoped<WorkflowService>();
 
 var signingKey = builder.Configuration["Identity:Tokens:SigningKey"];
 
@@ -60,14 +62,29 @@ if (string.IsNullOrWhiteSpace(signingKey) || signingKey.Length < 32)
     throw new InvalidOperationException("Security Error: The Identity:Tokens:SigningKey must be configured in appsettings.json and be at least 32 characters long.");
 }
 
+//builder.Services.AddScoped<ITransactionWorkflowResolver, TransactionWorkflowResolver>();
+//builder.Services.AddHostedService<WorkflowTransactionTypeSeeder>();
+
 // --- 3. ELSA SETUP ---
 builder.Services.AddElsa(elsa =>
 {
-    elsa.UseWorkflowManagement(m => m.UseEntityFrameworkCore(ef =>
+    //elsa.UseLabels();
+    //elsa.UseLabels(labels => labels.UseEntityFrameworkCore(ef =>
+    //{
+    //    ef.DbContextOptionsBuilder = (_, opts) => opts
+    //        .UseSqlServer(connStr, sql =>
+    //            sql.MigrationsAssembly("Elsa.Persistence.EFCore.SqlServer"))
+    //        .ReplaceService<IMigrationsAssembly, DbSchemaAwareMigrationAssembly>();
+    //}));
+
+    elsa.UseWorkflowManagement(m =>
     {
-        ef.UseSqlServer(connStr);
-        ef.RunMigrations = builder.Environment.IsDevelopment();
-    }));
+        m.UseEntityFrameworkCore(ef =>
+        {
+            ef.UseSqlServer(connStr);
+            ef.RunMigrations = builder.Environment.IsDevelopment();
+        });
+    });
 
     elsa.UseWorkflowRuntime(r => r.UseEntityFrameworkCore(ef =>
     {
@@ -107,7 +124,8 @@ builder.Services.AddElsa(elsa =>
         });
     });
     elsa.UseDefaultAuthentication();
-    elsa.UseJavaScript();
+    elsa.UseLabels();
+     elsa.UseJavaScript();
 
     // Activities
     elsa.AddActivity<ValidateOrderActivity>();
@@ -160,8 +178,29 @@ app.UseSwaggerUI(c =>
 if (app.Environment.IsDevelopment())
 {
     await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
-    AppDbContext appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await appDb.Database.MigrateAsync();
+
+    await scope.ServiceProvider.GetRequiredService<AppDbContext>()
+        .Database.MigrateAsync();
+
+    //// Migrate LabelsElsaDbContext before seeding  
+    //var labelsDbFactory = scope.ServiceProvider
+    //    .GetRequiredService<IDbContextFactory<LabelsElsaDbContext>>();
+    //await using var labelsDb = await labelsDbFactory.CreateDbContextAsync();
+    //await labelsDb.Database.MigrateAsync();
+
+    //// Now seed safely  
+    //var labelStore = scope.ServiceProvider.GetRequiredService<ILabelStore>();
+    //var existing = (await labelStore.ListAsync()).Items.Select(l => l.Name).ToHashSet();
+    //foreach (var txType in TransactionTypes.All)
+    //{
+    //    if (!existing.Contains(txType))
+    //        await labelStore.SaveAsync(new Label
+    //        {
+    //            Id = Guid.NewGuid().ToString(),
+    //            Name = txType,
+    //            Description = $"Workflows that handle {txType} transactions"
+    //        });
+    //}
 }
 
 app.MapControllers();
