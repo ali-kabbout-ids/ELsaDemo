@@ -22,6 +22,10 @@ using PurchaseOrderApi.Studio.CustomWidgets;
 using Elsa.Studio.Login.BlazorWasm.Extensions;
 using Elsa.Studio.Login.Extensions;
 using Elsa.Studio.Login.HttpMessageHandlers;
+using Elsa.Studio.Workflows.Contracts;
+using PurchaseOrderApi.Studio.CustomServices;
+using Elsa.Studio.Workflows.Services;
+using PurchaseOrderApi.Studio.CustomWidgets.Logout;
 
 // Build the host.
 WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -47,6 +51,14 @@ builder.Services.AddSingleton<IAuthenticationProviderManager, DefaultAuthenticat
 builder.Services.AddRemoteBackend(backendApiConfig);
 builder.Services.AddDashboardModule();
 builder.Services.AddWorkflowsModule();
+builder.Services.AddScoped<IFeature, LogoutFeature>();
+builder.Services.AddScoped<WorkflowCloningDialogService>();
+builder.Services.AddScoped<IWorkflowCloningDialogService>(sp =>
+    new PermissionAwareWorkflowCloningDialogService(
+        sp.GetRequiredService<WorkflowCloningDialogService>(),
+        sp.GetRequiredService<AuthenticationStateProvider>(),
+        sp.GetRequiredService<IUserMessageService>()
+    ));
 builder.Services.AddAuthorizationCore();
 //builder.Services.AddLabelsModule(backendApiConfig);
 builder.Services.AddWorkflowContextsModule();

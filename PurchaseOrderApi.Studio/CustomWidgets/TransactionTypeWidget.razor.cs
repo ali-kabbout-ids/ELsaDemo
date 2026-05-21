@@ -2,6 +2,7 @@
 using Elsa.Api.Client.Resources.WorkflowDefinitions.Models;
 using Elsa.Api.Client.Resources.WorkflowDefinitions.Requests;
 using Elsa.Studio.Contracts;
+using Elsa.Studio.Workflows.UI.Contracts;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using System.Text.Json;
@@ -33,6 +34,10 @@ namespace PurchaseOrderApi.Studio.CustomWidgets
 
     public partial class TransactionTypeWidget : ComponentBase
     {
+        [CascadingParameter] private IWorkspace? Workspace { get; set; }
+
+        private bool IsReadOnly => Workspace?.IsReadOnly ?? false;
+
         [Parameter] public WorkflowDefinition WorkflowDefinition { get; set; } = default!;
 
         [Parameter] public EventCallback WorkflowDefinitionUpdated { get; set; }

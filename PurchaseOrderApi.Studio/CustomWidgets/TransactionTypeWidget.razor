@@ -9,7 +9,7 @@
                Label="Transaction Type"
                Variant="Variant.Outlined"
                Clearable="true"
-               Disabled="_saving"
+               Disabled="_saving || IsReadOnly"
                HelperText="@(_saving ? "Saving…" : string.Empty)">
 
         @foreach (var type in TransactionTypes.All)

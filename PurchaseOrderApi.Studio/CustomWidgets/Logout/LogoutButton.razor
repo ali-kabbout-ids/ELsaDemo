@@ -1,0 +1,21 @@
+﻿@using Elsa.Studio.Login.Contracts  
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+@inject IEndSessionService EndSessionService  
+  
+<AuthorizeView>  
+    <Authorized>  
+        <MudTooltip Text="Logout">  
+            <MudIconButton Icon="@Icons.Material.Filled.Logout"  
+                           Color="Color.Inherit"  
+                           OnClick="OnLogoutClickedAsync" />  
+        </MudTooltip>  
+    </Authorized>  
+</AuthorizeView>  
+  
+@code {  
+    private async Task OnLogoutClickedAsync()  
+    {  
+        await EndSessionService.LogoutAsync();  
+    }  
+}

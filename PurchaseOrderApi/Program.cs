@@ -15,6 +15,8 @@ using Elsa.Workflows;
 using PurchaseOrderApi.Dtos;
 using Elsa.Persistence.EFCore.Modules.Labels;
  using Elsa.Identity.Contracts;
+using Elsa.Workflows.Api.Services;
+using Elsa.Workflows.Api;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -145,6 +147,13 @@ builder.Services.AddElsa(elsa =>
 });
 
 builder.Services.AddScoped<IUserCredentialsValidator, PlatziUserCredentialsValidator>();
+
+builder.Services.AddScoped<StaticWorkflowDefinitionLinker>();
+
+// Override the interface with the permission-aware decorator  
+builder.Services.AddScoped<IWorkflowDefinitionLinker, PermissionAwareWorkflowDefinitionLinker>();
+
+builder.Services.AddHttpContextAccessor();
 
 
 //if (builder.Environment.IsDevelopment())

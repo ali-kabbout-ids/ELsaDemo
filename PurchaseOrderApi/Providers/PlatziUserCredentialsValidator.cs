@@ -45,8 +45,7 @@ namespace PurchaseOrderApi.Providers
             {
                 Id = profile!.Email,
                 Name = profile.Email,
-                // For now admin
-                Roles = new List<string> { "admin" }
+                Roles = new List<string> { elsaRoleId }
             };
         }
 
