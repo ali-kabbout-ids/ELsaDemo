@@ -47,7 +47,7 @@ builder.Services.AddCore();
 builder.Services.AddShell();
 builder.Services.UseElsaIdentity();
 builder.Services.AddLoginModule();    
-builder.Services.AddSingleton<IAuthenticationProviderManager, DefaultAuthenticationProviderManager>();
+builder.Services.AddScoped<IAuthenticationProviderManager, DefaultAuthenticationProviderManager>();
 builder.Services.AddRemoteBackend(backendApiConfig);
 builder.Services.AddDashboardModule();
 builder.Services.AddWorkflowsModule();
